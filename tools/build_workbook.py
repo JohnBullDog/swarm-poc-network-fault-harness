@@ -30,6 +30,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from tools.dictionary import coverage, describe
+from tools.workbook_context import (COST_MODEL, DESIGN, LIMITS, METHOD,
+                                    PROFILES, SYMBOLS, TIER_NOTE, TIERS_TABLE)
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
@@ -381,7 +385,11 @@ def sheet_all_runs(wb: Workbook) -> None:
     if not frames:
         return
     d = pd.concat(frames, ignore_index=True, sort=False)
-    lead = [c for c in CORE + PRED + MEAS if c in d.columns]
+    # experiment first: a reader opening this sheet must be able to see which
+    # group a row belongs to without decoding the run_id.
+    lead = [c for c in ["experiment", "scenario", "run_id", "engine", "mode"]
+            + CORE + PRED + MEAS if c in d.columns]
+    lead = list(dict.fromkeys(lead))
     rest = [c for c in d.columns if c not in lead]
     d = d[lead + rest]
     ws = wb.create_sheet("All runs")
@@ -393,49 +401,160 @@ def sheet_all_runs(wb: Workbook) -> None:
         "axis varied).")
     write_frame(ws, d, r0)
     _autosize(ws, max_width=24)
+    return list(d.columns)
 
 
-DICTIONARY = [
-    ("run_id", "key", "Unique per run. Join every event table on this."),
-    ("engine", "setup", "container (real clock, real TCP via tc netem) or virtual (simulated clock)."),
-    ("mode", "setup", "synthetic (worker sleeps the cost model's time) or real (Qwen2.5-0.5B layers on CPU)."),
-    ("depth_D / width_W / n_nodes_N", "setup", "Pipeline stages, replicas per stage, and N = D x W."),
-    ("concurrency_G", "setup", "Concurrent agent streams held in flight (closed loop)."),
-    ("pred_t_token_s_report", "prediction", "The report's expression: (P_a*b + s*q)/B + D*(l + a/beta). No entry hop."),
-    ("pred_t_token_s", "prediction", "The full measurable path: the above plus the gateway's entry hop. No fitted fudge factor."),
-    ("pred_x_max_tok_s", "prediction", "Peak throughput, sum(B_i) / (P_a*b + s*q)."),
-    ("pred_x_of_g_tok_s", "prediction", "The report's utilisation ramp, X_max * min(1, G/N). An upper bound."),
-    ("pred_x_delay_bound_tok_s", "prediction", "G / T_token. Binds below the knee."),
-    ("pred_x_capacity_compute_tok_s", "prediction", "W / max_k(compute_k). Binds above the knee. Compute only: transit overlaps with serving the next token."),
-    ("pred_x_closed_loop_tok_s", "prediction", "min(delay bound, capacity bound). The quantity measurement actually tracks."),
-    ("meas_throughput_tok_s", "measurement", "Steady-state tokens per second."),
-    ("meas_t_token_s_p50 / _p95 / _mean", "measurement", "Per-token latency. Compare the model against p50: the mean carries fault-window stalls."),
-    ("mean_busy_frac", "measurement", "Fraction of the sample window a node's servers were busy."),
-    ("throughput_efficiency", "measurement", "Measured throughput over X_max."),
-    ("latency_ratio_p50_over_pred", "measurement", "Measured p50 over predicted. This is the harness's own cost, not a model error."),
-    ("detection_s", "failover", "Fault to the coordinator marking the node dead. Set by the heartbeat interval."),
-    ("recovery_s", "failover", "Fault to the first successful token routed around the loss AFTER detection. Set by the client hop timeout."),
-    ("reroute_s", "failover", "Fault to the first token using that stage on another replica. Near-instant under round-robin; says little alone."),
-    ("stall_s", "failover", "Fault to the last error naming the node."),
-    ("in_steady_state", "label", "On event tables: row falls after run_start + warmup. Nothing is dropped, only labelled."),
-    ("fault_window", "label", "On event tables: row falls between a fault and its recovery."),
-    ("*_s / *_ts", "convention", "_s is a duration in seconds; _ts is an instant. sim_ts is simulated time, wall_ts is unix time."),
-]
+def _wrap_block(ws, row, lines, ncols, height=30):
+    for text in lines:
+        c = ws.cell(row=row, column=1, value="- " + text)
+        c.font = NOTE_FONT
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells(start_row=row, start_column=1,
+                       end_row=row, end_column=ncols)
+        ws.row_dimensions[row].height = height
+        row += 1
+    return row
 
 
-def sheet_dictionary(wb: Workbook) -> None:
+def sheet_dictionary(wb, columns):
+    """Every column in the data, with group, units and definition.
+
+    Generated from the data's own column list and checked for completeness, so
+    it cannot quietly describe a table that has moved on without it.
+    """
+    missing = coverage(columns)
+    if missing:
+        raise SystemExit("refusing to build: no dictionary entry for these "
+                         "columns, so a reader would meet them undefined: "
+                         + ", ".join(missing))
+    rows = [dict(zip(("column", "group", "units", "definition"),
+                     (c,) + describe(c))) for c in columns]
+    df = pd.DataFrame(rows).sort_values(["group", "column"]).reset_index(drop=True)
     ws = wb.create_sheet("Data dictionary")
     r0 = add_title(
-        ws, "Data dictionary",
-        "Full schema, including the per-event tables not in this workbook, is "
-        "in docs/data-dictionary.md.")
-    df = pd.DataFrame(DICTIONARY, columns=["column", "kind", "meaning"])
+        ws, "Data dictionary - every column, with units",
+        "All %d columns of the 'All runs' sheet. Generated from the data and "
+        "checked for completeness: the build fails if any column lacks an "
+        "entry. Per-event tables (hop, token_done, membership, recovery) are "
+        "documented in docs/data-dictionary.md." % len(df))
     write_frame(ws, df, r0)
-    ws.column_dimensions["A"].width = 34
-    ws.column_dimensions["B"].width = 14
-    ws.column_dimensions["C"].width = 110
+    for letter, width in (("A", 34), ("B", 14), ("C", 16), ("D", 104)):
+        ws.column_dimensions[letter].width = width
     for row in ws.iter_rows(min_row=r0 + 1):
-        row[2].alignment = Alignment(wrap_text=True, vertical="top")
+        row[3].alignment = Alignment(wrap_text=True, vertical="top")
+
+
+def sheet_design(wb):
+    ws = wb.create_sheet("Experiment design", 1)
+    r0 = add_title(
+        ws, "Experiment design - what varied, what was held constant, and why",
+        "Read this before the data sheets. Where a value had to be chosen "
+        "rather than swept, the reason is given: a defaulted constant that "
+        "happens to bind a result is the easiest way to draw a wrong "
+        "conclusion from a sweep.")
+    df = pd.DataFrame(DESIGN, columns=[
+        "sheet", "experiment (value in data)", "title", "question asked",
+        "varied", "held constant", "runs", "engine", "mode",
+        "design notes and why"])
+    write_frame(ws, df, r0)
+    for letter, width in (("A", 20), ("B", 22), ("C", 30), ("D", 46),
+                          ("E", 40), ("F", 44), ("G", 7), ("H", 11),
+                          ("I", 20), ("J", 86)):
+        ws.column_dimensions[letter].width = width
+    for row in ws.iter_rows(min_row=r0 + 1):
+        for cell in row:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.row_dimensions[row[0].row].height = 150
+
+
+def sheet_costmodel(wb):
+    ws = wb.create_sheet("Cost model & tiers", 2)
+    row = add_title(
+        ws, "The cost model under test, and the emulated device tiers",
+        "Everything this harness predicts derives from the expressions below. "
+        "Measurements are compared against them, never fitted to them.")
+
+    def block(title, df, widths):
+        nonlocal row
+        c = ws.cell(row=row, column=1, value=title)
+        c.font = Font(name=FONT, size=11, bold=True, color="1F3864")
+        row += 1
+        write_frame(ws, df, row)
+        for r in range(row + 1, row + 1 + len(df)):
+            for cc in ws[r]:
+                cc.alignment = Alignment(wrap_text=True, vertical="top")
+            ws.row_dimensions[r].height = 46
+        row += len(df) + 2
+        for letter, width in widths:
+            cur = ws.column_dimensions[letter].width or 0
+            ws.column_dimensions[letter].width = max(cur, width)
+
+    block("Governing expressions",
+          pd.DataFrame(COST_MODEL, columns=[
+              "quantity", "expression",
+              "what it means, and what this harness measured about it"]),
+          [("A", 20), ("B", 44), ("C", 92)])
+    block("Symbols",
+          pd.DataFrame(SYMBOLS, columns=["symbol", "units", "meaning"]),
+          [("A", 20), ("B", 18), ("C", 92)])
+    block("Model profiles",
+          pd.DataFrame(PROFILES, columns=[
+              "profile", "total params P", "active params P_a",
+              "bytes/param b", "layers L", "hidden d", "P_a*b (GB)", "notes"]),
+          [("A", 20), ("H", 92)])
+    block("Device tiers (emulated)",
+          pd.DataFrame(TIERS_TABLE, columns=[
+              "tier", "stands for", "B (GB/s)", "availability p",
+              "CPU cores", "memory (MB)", "link (Mbit/s)", "delay (ms)"]),
+          [("A", 20), ("B", 34)])
+    _wrap_block(ws, row, [TIER_NOTE], 8, height=76)
+
+
+def sheet_provenance(wb):
+    import json
+    man = None
+    for d in sorted((REPO / "runs").glob("exp1_concurrency_g01-*")):
+        f = d / "manifest.json"
+        if f.exists():
+            man = json.loads(f.read_text(encoding="utf-8"))
+    host = (man or {}).get("host", {})
+    rows = [
+        ("Harness", "repository",
+         "https://github.com/JohnBullDog/swarm-poc-network-fault-harness"),
+        ("Harness", "git commit at run time",
+         host.get("git_commit") or "(uncommitted at run time)"),
+        ("Harness", "container image (synthetic)",
+         (host.get("image_synthetic") or "").split("|")[0][:25] or "n/a"),
+        ("Harness", "run manifests",
+         "Each run directory under runs/ carries a full manifest: resolved "
+         "scenario, placement, predictions, fault schedule, suppressed "
+         "faults, and host facts."),
+        ("Host", "platform", host.get("platform", "")),
+        ("Host", "python", host.get("python", "")),
+        ("Host", "docker", host.get("docker_version", "")),
+        ("Host", "docker CPUs", host.get("docker_ncpu", "")),
+        ("Host", "docker memory (bytes)", host.get("docker_mem_total", "")),
+        ("Host", "kernel",
+         "WSL2 6.18; sch_netem, sch_tbf and sch_htb verified present and "
+         "working inside containers before anything was built on them"),
+        ("Host", "RAM", "16 GB total; WSL2 ceiling raised from 8 GB to 11 GB"),
+    ] + list(METHOD)
+    ws = wb.create_sheet("Provenance & limits", 3)
+    r0 = add_title(ws, "Provenance, method, and the limits on these numbers",
+                   "Taken from the run manifests.")
+    write_frame(ws, pd.DataFrame(rows, columns=["area", "item", "value"]), r0)
+    row = r0 + len(rows) + 2
+    c = ws.cell(row=row, column=1,
+                value="Limits - these bound what any number here can mean")
+    c.font = Font(name=FONT, size=11, bold=True, color="C00000")
+    _wrap_block(ws, row + 1, LIMITS, 3, height=44)
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].width = 96
+    for r in range(r0 + 1, r0 + len(rows) + 1):
+        ws.cell(row=r, column=3).alignment = Alignment(wrap_text=True,
+                                                       vertical="top")
+        ws.row_dimensions[r].height = 32
 
 
 def sheet_summary(wb: Workbook, e1: dict, e2: dict, e7: dict) -> None:
@@ -539,9 +658,23 @@ def main() -> int:
     e7 = sheet_exp7(wb)
     sheet_exp1s(wb)
     sheet_engines(wb)
-    sheet_all_runs(wb)
-    sheet_dictionary(wb)
+    cols = sheet_all_runs(wb)
+    sheet_dictionary(wb, cols)
+    sheet_design(wb)
+    sheet_costmodel(wb)
+    sheet_provenance(wb)
     sheet_summary(wb, e1, e2, e7)
+
+    # Orientation first, then data, then reference. A reader should meet the
+    # design and the limits before any number.
+    order = ["Summary", "Experiment design", "Cost model & tiers",
+             "Provenance & limits", "exp1 Concurrency", "exp2 Delay",
+             "exp4 Failover", "Recovery per fault", "exp7 Mode check",
+             "exp1s Report scale", "Engine comparison", "All runs",
+             "Data dictionary"]
+    wb._sheets = ([wb[n] for n in order if n in wb.sheetnames]
+                  + [ws for ws in wb._sheets if ws.title not in order])
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUT)
     print(f"wrote {OUT}")
