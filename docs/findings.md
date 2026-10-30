@@ -48,7 +48,7 @@ reader nothing.
 
 **So predictions here are the cost model itself, with no fitted correction, and
 the harness's own cost appears as the measured/predicted ratio.** The fit is
-still computed and recorded in `datasets/calibration.json` as a measurement of
+still computed and recorded in `datasets/analysis/calibration.json` as a measurement of
 the harness, not a parameter of it.
 
 The general lesson, which applies well beyond this harness: a correction fitted
@@ -73,7 +73,7 @@ The netem path was verified before anything was built on it: a configured
 ## 1. Concurrency sweep
 
 D=3, W=2, N=6 tier-2 nodes, `poc_small`, no churn. `X_max` = 99.9 tok/s.
-Source: `datasets/exp1_runs.csv`.
+Source: `datasets/summary/exp1_runs.csv`.
 
 | G | measured X | report's ramp | closed-loop bound | X/ramp | X/closed | p50 | busy | failed |
 |---|---|---|---|---|---|---|---|---|
@@ -119,7 +119,7 @@ measurement includes queueing that Little's law accounts for exactly.
 ## 2. Delay sweep
 
 D ∈ {2,3,4,6}, W=1, G=1, per-hop delay ℓ ∈ {1,5,25,50} ms. 16 points.
-Source: `datasets/exp2_runs.csv`.
+Source: `datasets/summary/exp2_runs.csv`.
 
 Latency against per-hop delay is linear with slope **exactly D**:
 
@@ -151,7 +151,7 @@ grows mildly with D because each stage adds event-loop work.
 ## 4. Disconnection and failover
 
 D=3, G=6, one `kill` of a middle-stage replica at t=20 s. `death_after` =
-4 × heartbeat. Sources: `datasets/exp4_runs.csv`, `datasets/exp4_recovery.csv`.
+4 × heartbeat. Sources: `datasets/summary/exp4_runs.csv`, `datasets/detail/exp4_recovery.csv`.
 
 ### Replica count × heartbeat interval
 
@@ -221,8 +221,8 @@ in the manifest so the size of that effect is auditable.
 qualified no.**
 
 D=3, W=1, Qwen2.5-0.5B split 8/8/8 layers across three tier-2 containers, CPU
-float32, greedy decoding. Sources: `datasets/exp7_mode_check.csv`,
-`datasets/exp7_effective_bandwidth.json`.
+float32, greedy decoding. Sources: `datasets/analysis/exp7_mode_check.csv`,
+`datasets/analysis/exp7_effective_bandwidth.json`.
 
 Real mode works end to end: 0 failed requests, and the output is correct —
 the fixed prompt ending *"In practice this means"* continues as
@@ -297,7 +297,7 @@ contention and prefill cost, both of which inflate them.
 A reconstruction of the research report's appendix example A: 1000 Pi-class
 (tier-1) nodes, 1T-parameter MoE at INT4 with 60B active, D=50, W=20, ℓ=1 ms.
 N=1000 is ~16× what this host can run as containers.
-Source: `datasets/exp1s_runs.csv`.
+Source: `datasets/summary/exp1s_runs.csv`.
 
 | G | measured X | report's ramp | X/ramp | p50 | efficiency |
 |---|---|---|---|---|---|
@@ -338,7 +338,7 @@ a shallow pipeline and short compute, it is not.
 `tools/compare_engines.py` runs each scenario on both engines, equalising the
 harness's own measured overhead per configuration so that what remains is
 attributable to the engines' models. Sources:
-`datasets/engine_comparison_exp1.csv`, `..._exp2.csv`.
+`datasets/analysis/engine_comparison_exp1.csv`, `..._exp2.csv`.
 
 | axis | exp1 median err | exp2 median err | tolerance | verdict |
 |---|---|---|---|---|

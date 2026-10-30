@@ -37,8 +37,10 @@ from tools.workbook_context import (COST_MODEL, DESIGN, LIMITS, METHOD,
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-DATASETS = REPO / "datasets"
-OUT = DATASETS / "swarm_poc_results.xlsx"
+from swarm.core import paths               # noqa: E402
+
+DATASETS = paths.DATASETS
+OUT = paths.WORKBOOK
 
 FONT = "Arial"
 HEAD_FILL = PatternFill("solid", fgColor="1F3864")
@@ -119,8 +121,14 @@ def add_title(ws, title: str, note: str = "") -> int:
 
 
 def load(name: str) -> pd.DataFrame | None:
-    path = DATASETS / name
-    return pd.read_csv(path) if path.exists() else None
+    """Find a dataset by its flat filename, wherever the layout puts it."""
+    stem = name[:-4] if name.endswith(".csv") else name
+    key, _, table = stem.partition("_")
+    for path in (paths.SUMMARY / name, paths.DETAIL / name,
+                 paths.ANALYSIS / name, paths.detail_csv(key, table)):
+        if path.exists():
+            return pd.read_csv(path)
+    return None
 
 
 # ---------------------------------------------------------------------------

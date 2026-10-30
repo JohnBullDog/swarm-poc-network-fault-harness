@@ -46,7 +46,9 @@ from swarm.virtual.run import run_virtual              # noqa: E402
 
 from tools.calibrate import fit_one                    # noqa: E402
 
-DATASETS = REPO / "datasets"
+from swarm.core import paths               # noqa: E402
+
+DATASETS = paths.DATASETS
 RUNS = REPO / "runs"
 
 # Tolerances. Latency and throughput are the headline quantities and are held to
@@ -230,8 +232,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     df = pd.DataFrame(rows)
-    out = args.out or DATASETS / f"engine_comparison_{args.experiment}.csv"
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = args.out or paths.analysis_file(
+        f"engine_comparison_{args.experiment}.csv")
+    paths.ensure()
     df.to_csv(out, index=False)
 
     print(f"\n{'axis':20s} {'median |rel err|':>17s} {'max |rel err|':>14s} "
@@ -250,7 +253,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{key:20s} {err.median()*100:16.1f}% {err.max()*100:13.1f}% "
               f"{tol*100:5.0f}% {frac*100:7.0f}%")
 
-    verdict_path = DATASETS / f"engine_comparison_{args.experiment}_verdict.json"
+    verdict_path = paths.analysis_file(
+        f"engine_comparison_{args.experiment}_verdict.json")
     verdict_path.write_text(json.dumps(verdicts, indent=2), encoding="utf-8")
     print(f"\nwritten: {out}\n         {verdict_path}")
     return 0

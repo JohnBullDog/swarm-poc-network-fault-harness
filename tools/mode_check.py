@@ -51,7 +51,9 @@ from swarm.runner.experiments import (HOP_OVERHEAD_MS, MODE_CHECK_G,  # noqa: E4
                                       STAGE_OVERHEAD_MS, exp7_mode_check)
 from swarm.runner.run import REPO as RUN_REPO, run_scenario  # noqa: E402
 
-DATASETS = REPO / "datasets"
+from swarm.core import paths               # noqa: E402
+
+DATASETS = paths.DATASETS
 TOLERANCE = 0.15        # 15% on per-token latency is the bar for "tracks"
 
 
@@ -218,9 +220,9 @@ async def run_all(model_dir: Path, limit_g: tuple[int, ...] | None = None) -> in
         })
 
     df = pd.DataFrame(rows)
-    DATASETS.mkdir(parents=True, exist_ok=True)
-    df.to_csv(DATASETS / "exp7_mode_check.csv", index=False)
-    (DATASETS / "exp7_effective_bandwidth.json").write_text(
+    paths.ensure()
+    df.to_csv(paths.analysis_file("exp7_mode_check.csv"), index=False)
+    paths.analysis_file("exp7_effective_bandwidth.json").write_text(
         json.dumps(fit, indent=2), encoding="utf-8")
 
     print(f"\n{'arm':22s} {'G':>2s} {'real p50':>9s} {'synth p50':>10s} "
@@ -238,8 +240,8 @@ async def run_all(model_dir: Path, limit_g: tuple[int, ...] | None = None) -> in
         print(f"\n{arm}: median |error| {med:.1f}%, "
               f"{frac:.0f}% of points within {TOLERANCE*100:.0f}%")
 
-    print(f"\nwritten: {DATASETS / 'exp7_mode_check.csv'}")
-    print(f"         {DATASETS / 'exp7_effective_bandwidth.json'}")
+    print(f"\nwritten: {paths.analysis_file('exp7_mode_check.csv')}")
+    print(f"         {paths.analysis_file('exp7_effective_bandwidth.json')}")
     return 0
 
 

@@ -34,8 +34,10 @@ sys.path.insert(0, str(REPO))
 from swarm.core.events import (DERIVED_TABLES, EVENT_SCHEMA,   # noqa: E402
                                columns_for)
 
+from swarm.core import paths               # noqa: E402
+
 RUNS = REPO / "runs"
-DATASETS = REPO / "datasets"
+DATASETS = paths.DATASETS
 
 problems: list[str] = []
 checks = 0
@@ -176,7 +178,7 @@ def check_dataset(path: Path) -> None:
 
     # Every detail table must join to the summary table.
     key = name.split("_")[0]
-    runs = DATASETS / f"{key}_runs.csv"
+    runs = paths.runs_csv(key)
     if runs.exists() and not name.endswith("_runs.csv"):
         known = set(pd.read_csv(runs)["run_id"])
         missing = set(df["run_id"]) - known
@@ -186,7 +188,7 @@ def check_dataset(path: Path) -> None:
 
 def check_dataset_schema_stability() -> None:
     """A sweep's runs.csv rows must all carry the same columns."""
-    for path in sorted(DATASETS.glob("*_runs.csv")):
+    for path in paths.all_runs_csvs():
         df = pd.read_csv(path)
         # Columns that are legitimately absent for some sweep points (per-stage
         # groups depend on depth; sweep_* depends on the axis) are exempt.
@@ -211,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         if (d / "manifest.json").exists():
             check_run(d)
 
-    ds = sorted(DATASETS.glob("*.csv")) if DATASETS.exists() else []
+    ds = [p for p in paths.all_data_files() if p.suffix == ".csv"]
     for path in ds:
         if path.name.endswith("_progress.json"):
             continue

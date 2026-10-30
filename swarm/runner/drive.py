@@ -19,15 +19,16 @@ from pathlib import Path
 
 import pandas as pd
 
+from ..core import paths
 from .experiments import EXPERIMENTS
 from .run import REPO, run_scenario
 from ..virtual.run import run_virtual
 
-DATASETS = REPO / "datasets"
+DATASETS = paths.DATASETS
 
 
 def dataset_for(key: str) -> Path:
-    return DATASETS / f"{key}_runs.csv"
+    return paths.runs_csv(key)
 
 
 def consolidate(key: str, run_dirs: list[Path]) -> Path:
@@ -37,7 +38,7 @@ def consolidate(key: str, run_dirs: list[Path]) -> Path:
     already on the row, so this file is self-contained: it can be read without
     the run directories it came from.
     """
-    DATASETS.mkdir(parents=True, exist_ok=True)
+    paths.ensure()
     frames = []
     for rd in run_dirs:
         path = rd / "tidy" / "runs.csv"
@@ -49,7 +50,7 @@ def consolidate(key: str, run_dirs: list[Path]) -> Path:
     out = dataset_for(key)
     df.to_csv(out, index=False)
     try:
-        df.to_parquet(DATASETS / f"{key}_runs.parquet", index=False)
+        df.to_parquet(paths.runs_parquet(key), index=False)
     except Exception:
         pass
     return out
@@ -68,7 +69,6 @@ def consolidate_detail(key: str, run_dirs: list[Path],
     of highly repetitive text, which compresses roughly eightfold; pandas reads
     a `.csv.gz` with no extra argument, so nothing downstream has to care.
     """
-    big = {"hop", "token_done"}
     out: list[Path] = []
     for name in tables:
         frames = []
@@ -81,14 +81,14 @@ def consolidate_detail(key: str, run_dirs: list[Path],
         if not frames:
             continue
         df = pd.concat(frames, ignore_index=True, sort=False)
-        suffix = ".csv.gz" if name in big else ".csv"
-        path = DATASETS / f"{key}_{name}{suffix}"
+        path = paths.detail_csv(key, name)
+        gz = name in paths.GZIP_TABLES
         df.to_csv(path, index=False,
-                  compression="gzip" if name in big else None)
+                  compression="gzip" if gz else None)
         # Drop a previous uncompressed copy, so a re-run does not leave two
         # versions of the same table with different sizes.
-        stale = DATASETS / f"{key}_{name}.csv"
-        if name in big and stale.exists():
+        stale = paths.DETAIL / f"{key}_{name}.csv"
+        if gz and stale.exists():
             stale.unlink()
         out.append(path)
     return out
@@ -101,8 +101,8 @@ async def drive(key: str, *, resume: bool = False, limit: int = 0,
     if limit:
         scenarios = scenarios[:limit]
 
-    DATASETS.mkdir(parents=True, exist_ok=True)
-    prog_path = DATASETS / f"{key}_progress.json"
+    paths.ensure()
+    prog_path = paths.progress_file(key)
     progress = {}
     if resume and prog_path.exists():
         progress = json.loads(prog_path.read_text(encoding="utf-8"))

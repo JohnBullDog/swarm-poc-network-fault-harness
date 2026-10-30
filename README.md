@@ -120,7 +120,7 @@ With the circularity gone, the residual turned out **not to be a constant**:
 overhead scales with load, not with the host. A single fitted figure would have
 been a fudge factor that flattered the model while hiding its real accuracy.
 
-`tools/calibrate.py` still measures and records this (`datasets/calibration.json`)
+`tools/calibrate.py` still measures and records this (`datasets/analysis/calibration.json`)
 — as a measurement *of* the harness, not a parameter *for* it.
 
 **Engine agreement** (`tools/compare_engines.py`) runs the same scenarios on
@@ -195,8 +195,10 @@ larger scale can be trusted.
 - **[`docs/findings.md`](docs/findings.md)** — the write-up, every number
   sourced to a table.
 - **[`docs/data-dictionary.md`](docs/data-dictionary.md)** — full output schema.
-- `datasets/*_runs.csv` — one row per run; `datasets/*_{hop,token_done}.csv.gz`
-  — per-observation detail. Join everything on `run_id`.
+- [`datasets/`](datasets/) — the data, laid out as `summary/` (one row per
+  run), `detail/` (one row per observation), and `analysis/` (calibration,
+  engine and mode comparisons). Join everything on `run_id`;
+  [`datasets/README.md`](datasets/README.md) is the guide.
 
 ## Interpreting the results
 
@@ -230,10 +232,12 @@ swarm/components/    gateway, coordinator, stage worker, fault controller,
                      real-mode stage and gateway
 swarm/runner/        compose generation, the run orchestrator, experiment definitions
 swarm/virtual/       discrete-event scheduler and the virtual engine
-swarm/analysis/      the collector that produces tidy tables
-tools/               model fetch, overhead calibration, engine comparison
+swarm/analysis/      the collector that produces tidy tables, and figures
+tools/               model fetch, calibration, engine comparison, mode check,
+                     tidiness checks, workbook build
 scenarios/           milestone scenarios
-docs/                findings, data dictionary
+datasets/            results: summary/, detail/, analysis/, and the workbook
+docs/                findings, data dictionary, design notes, figures
 ```
 
 ## References

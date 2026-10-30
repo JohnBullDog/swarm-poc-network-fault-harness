@@ -151,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("runs", nargs="*", type=Path,
                     help="run directories (default: every synthetic run under runs/)")
-    ap.add_argument("--out", type=Path, default=REPO / "datasets" / "calibration.json")
+    from swarm.core import paths
+    ap.add_argument("--out", type=Path,
+                    default=paths.analysis_file("calibration.json"))
     args = ap.parse_args(argv)
 
     dirs = args.runs or sorted(p for p in (REPO / "runs").iterdir() if p.is_dir())

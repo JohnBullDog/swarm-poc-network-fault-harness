@@ -31,8 +31,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt          # noqa: E402
 import pandas as pd                      # noqa: E402
 
-REPO = Path(__file__).resolve().parents[2]
-DATASETS = REPO / "datasets"
+from ..core import paths              # noqa: E402
+
+REPO = paths.REPO
+DATASETS = paths.DATASETS
 FIGURES = REPO / "docs" / "figures"
 
 THEMES = {
@@ -95,7 +97,7 @@ def _label_last(ax, x, y, text: str, color: str, theme: dict) -> None:
 # exp1: concurrency
 # ---------------------------------------------------------------------------
 def plot_exp1(theme_name: str = "light") -> Path | None:
-    path = DATASETS / "exp1_runs.csv"
+    path = paths.runs_csv("exp1")
     if not path.exists():
         return None
     theme = THEMES[theme_name]
@@ -162,7 +164,7 @@ def plot_exp1(theme_name: str = "light") -> Path | None:
 # exp2: delay and depth
 # ---------------------------------------------------------------------------
 def plot_exp2(theme_name: str = "light") -> Path | None:
-    path = DATASETS / "exp2_runs.csv"
+    path = paths.runs_csv("exp2")
     if not path.exists():
         return None
     theme = THEMES[theme_name]
@@ -231,8 +233,8 @@ def plot_exp2(theme_name: str = "light") -> Path | None:
 # exp4: failover
 # ---------------------------------------------------------------------------
 def plot_exp4(theme_name: str = "light") -> Path | None:
-    runs = DATASETS / "exp4_runs.csv"
-    rec = DATASETS / "exp4_recovery.csv"
+    runs = paths.runs_csv("exp4")
+    rec = paths.detail_csv("exp4", "recovery")
     if not (runs.exists() and rec.exists()):
         return None
     theme = THEMES[theme_name]
@@ -303,7 +305,7 @@ def plot_exp4(theme_name: str = "light") -> Path | None:
 # ---------------------------------------------------------------------------
 def plot_engine_comparison(experiment: str = "exp1",
                            theme_name: str = "light") -> Path | None:
-    path = DATASETS / f"engine_comparison_{experiment}.csv"
+    path = paths.analysis_file(f"engine_comparison_{experiment}.csv")
     if not path.exists():
         return None
     theme = THEMES[theme_name]

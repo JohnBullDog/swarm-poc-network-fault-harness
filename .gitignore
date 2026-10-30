@@ -7,7 +7,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Sweep bookkeeping: local resume state, not data.
-datasets/*_progress.json
+datasets/_progress/
 
 # Research inputs and working notes are not part of this repository.
 *.pdf

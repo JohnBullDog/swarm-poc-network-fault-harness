@@ -160,13 +160,13 @@ kept, but only one is a like-for-like comparison.
 
 ## Consolidated datasets
 
-`datasets/<exp>_runs.csv` concatenates the one-row `runs` tables across a
+`datasets/summary/<exp>_runs.csv` concatenates the one-row `runs` tables across a
 sweep, and is self-contained — every parameter and prediction is on the row.
 `datasets/<exp>_{hop,token_done,recovery,membership,throughput_sample}.csv`
 concatenate the per-observation tables, so a summary can be checked rather than
 taken on trust.
 
-`datasets/calibration.json` records the harness's measured per-stage and
+`datasets/analysis/calibration.json` records the harness's measured per-stage and
 per-hop overhead and its spread. These are *not* folded into any prediction:
 they are load-dependent, not host constants, so predictions are the bare cost
 model and the harness's cost appears as `latency_ratio_p50_over_pred`. `datasets/engine_comparison_<exp>.csv` and its `_verdict.json` record
