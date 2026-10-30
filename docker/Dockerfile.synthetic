@@ -1,0 +1,24 @@
+# Synthetic-mode image: no model, no torch.
+#
+# Kept deliberately small because image size and resident set are what cap how
+# many nodes a single host can emulate. aiohttp plus iproute2 is the whole
+# dependency set; iproute2 is needed because each container shapes its own link
+# with tc at startup.
+FROM python:3.12-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends iproute2 iputils-ping curl \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "aiohttp==3.10.11"
+
+WORKDIR /app
+COPY swarm /app/swarm
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,0 +1,14 @@
+.venv/
+runs/
+models/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+
+# Sweep bookkeeping: local resume state, not data.
+datasets/*_progress.json
+
+# Research inputs and working notes are not part of this repository.
+*.pdf
+scratch/

@@ -1,0 +1,16 @@
+# Keep LF on anything that runs inside a Linux container. A CRLF checkout of
+# entrypoint.sh makes the shebang unparseable and the container exits with
+# "no such file or directory", which is a confusing way to learn about line
+# endings.
+*.sh            text eol=lf
+Dockerfile*     text eol=lf
+*.py            text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+
+# Data is committed as generated.
+*.csv           text eol=lf
+*.json          text eol=lf
+*.csv.gz        binary
+*.parquet       binary
+*.png           binary

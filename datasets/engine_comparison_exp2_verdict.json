@@ -1,0 +1,32 @@
+{
+  "t_token_p50_ms": {
+    "median_abs_rel_err": 0.011091410518149032,
+    "max_abs_rel_err": 0.035780045304407794,
+    "tolerance": 0.1,
+    "fraction_within": 1.0
+  },
+  "throughput_tok_s": {
+    "median_abs_rel_err": 0.06219674114364279,
+    "max_abs_rel_err": 0.09598098386953065,
+    "tolerance": 0.1,
+    "fraction_within": 1.0
+  },
+  "stage_compute_ms": {
+    "median_abs_rel_err": 0.0001053651016560699,
+    "max_abs_rel_err": 0.016558024773749947,
+    "tolerance": 0.1,
+    "fraction_within": 1.0
+  },
+  "stage_net_ms": {
+    "median_abs_rel_err": 0.028969102218023755,
+    "max_abs_rel_err": 0.29501349661455467,
+    "tolerance": 0.25,
+    "fraction_within": 0.9375
+  },
+  "stage_queue_ms": {
+    "median_abs_rel_err": 1.0,
+    "max_abs_rel_err": 1.0,
+    "tolerance": 0.3,
+    "fraction_within": 0.0
+  }
+}

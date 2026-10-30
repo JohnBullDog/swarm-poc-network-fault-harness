@@ -1,0 +1,40 @@
+# Milestone 1: a gateway and three synthetic stage workers pass tokens end to
+# end and log every hop. No replicas, no faults, no churn -- the smallest
+# configuration that exercises the whole data path.
+name: m1_minimal
+experiment: milestone
+seed: 42
+mode: synthetic
+engine: container
+duration_s: 20
+warmup_s: 2
+model_profile: poc_small
+placement: capability_proportional
+
+composition:
+  depth: 3        # D
+  width: 1        # W
+  tiers: {2: 3}   # three tier-2 nodes, one per stage
+
+network:
+  2: {delay_ms: 5, jitter_ms: 0, loss_pct: 0, rate_mbit: 500}
+
+workload:
+  concurrency: 1  # G=1, the single-stream case
+  prompt_tokens: 32
+  gen_tokens: 8
+  arrival: closed_loop
+
+coordinator:
+  heartbeat_ms: 500
+  death_after_ms: 2000
+  sample_interval_ms: 500
+
+churn:
+  kind: none
+
+notes: >
+  Verifies milestone 1. At G=1 the pool is by construction at its 1/N
+  utilisation floor, so the throughput here is expected to be poor; what is
+  being checked is that tokens complete, hops are timed, and the measured
+  per-token latency lands near the cost model's prediction.

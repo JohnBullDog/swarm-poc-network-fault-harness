@@ -1,0 +1,56 @@
+# Milestone 2: replicas, heartbeats, the coordinator, and failover.
+#
+# Three faults, chosen to exercise the three distinct paths:
+#   t=12  disconnect  a node vanishes from the network but keeps running
+#   t=24  rejoin      it comes back and must be routed to again
+#   t=32  kill        a node dies outright and never returns
+#
+# W=2 so every stage keeps a live replica throughout; nothing here should fail a
+# request, and any request that does fail is a finding.
+name: m2_failover
+experiment: milestone
+seed: 42
+mode: synthetic
+engine: container
+duration_s: 45
+warmup_s: 3
+model_profile: poc_small
+placement: capability_proportional
+
+composition:
+  depth: 3
+  width: 2
+  tiers: {2: 6}
+
+network:
+  2: {delay_ms: 5, jitter_ms: 0, loss_pct: 0, rate_mbit: 500}
+
+workload:
+  concurrency: 4
+  prompt_tokens: 32
+  gen_tokens: 8
+  arrival: closed_loop
+
+coordinator:
+  heartbeat_ms: 500
+  death_after_ms: 2000
+  sample_interval_ms: 500
+
+retry:
+  max_attempts: 3
+  hop_timeout_ms: 5000
+  backoff_ms: 50
+
+churn:
+  kind: schedule
+  protect_last_replica: true
+  schedule:
+    - {at_s: 12, action: disconnect, target: n-s1-r0}
+    - {at_s: 24, action: rejoin,     target: n-s1-r0}
+    - {at_s: 32, action: kill,       target: n-s2-r0}
+
+notes: >
+  Expected detection time is between heartbeat_ms and death_after_ms +
+  heartbeat_ms: the coordinator cannot notice sooner than one missed beat and
+  must wait out the 2000 ms gap. Recovery should follow quickly after
+  detection, since the gateway re-routes as soon as the replica set changes.

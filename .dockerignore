@@ -1,0 +1,10 @@
+.venv/
+runs/
+models/
+.git/
+__pycache__/
+*.pyc
+analysis/
+datasets/
+*.md
+.dockerignore

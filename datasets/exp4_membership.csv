@@ -1,0 +1,69 @@
+run_id,engine,mode,src,kind,wall_ts,sim_ts,node_id,tier,stage,event,gap_s,fault_sim_ts,detection_s,reason
+exp4_failover_w1_hb0250-20261029T194200Z,container,synthetic,coordinator,membership,1793302933.2292874,12.521363973617554,n-s1-r0,2.0,1.0,death_detected,1.4483559131622314,,,no heartbeat for 1.448s
+exp4_failover_w1_hb0250-20261029T194200Z,container,synthetic,coordinator,membership,1793302933.229334,12.521410465240479,n-s2-r0,2.0,2.0,death_detected,1.3472232818603516,,,no heartbeat for 1.347s
+exp4_failover_w1_hb0250-20261029T194200Z,container,synthetic,coordinator,membership,1793302933.2539985,12.546075105667114,n-s1-r0,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w1_hb0250-20261029T194200Z,container,synthetic,coordinator,membership,1793302933.3552465,12.6473228931427,n-s2-r0,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w1_hb0250-20261029T194200Z,container,synthetic,coordinator,membership,1793302945.8783169,25.170393228530884,n-s1-r0,2.0,1.0,death_detected,1.0372233390808105,24.358360052108765,0.8120081424713135,no heartbeat for 1.037s
+exp4_failover_w1_hb0500-20261029T194303Z,container,synthetic,coordinator,membership,1793303008.6452076,25.30246901512146,n-s1-r0,2.0,1.0,death_detected,2.0969974994659424,23.81798243522644,1.4844293594360352,no heartbeat for 2.097s
+exp4_failover_w1_hb1000-20261029T194404Z,container,synthetic,coordinator,membership,1793303072.5481894,27.778445959091187,n-s1-r0,2.0,1.0,death_detected,4.039534330368042,24.39316701889038,3.3851394653320312,no heartbeat for 4.040s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.5777051,13.583893299102783,n-s0-r1,2.0,0.0,death_detected,1.441225290298462,,,no heartbeat for 1.441s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.5777645,13.58395266532898,n-s1-r0,2.0,1.0,death_detected,1.3858866691589355,,,no heartbeat for 1.386s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.5777924,13.583980798721313,n-s1-r1,2.0,1.0,death_detected,1.3413503170013428,,,no heartbeat for 1.341s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.5778158,13.584003925323486,n-s2-r0,2.0,2.0,death_detected,1.336026906967163,,,no heartbeat for 1.336s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.57784,13.584028244018555,n-s2-r1,2.0,2.0,death_detected,1.4289841651916504,,,no heartbeat for 1.429s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.6159558,13.622143983840942,n-s0-r1,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.6277645,13.633952856063843,n-s2-r1,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.6712213,13.677409410476685,n-s1-r0,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.7158782,13.722066402435303,n-s1-r1,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303120.7215595,13.727747678756714,n-s2-r0,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303132.5293674,25.535555839538574,n-s1-r0,2.0,1.0,death_detected,1.0360419750213623,24.667325496673584,0.8682084083557129,no heartbeat for 1.036s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303151.832081,44.83826947212219,n-s0-r0,2.0,0.0,death_detected,1.4600811004638672,,,no heartbeat for 1.460s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303151.8321362,44.838324308395386,n-s0-r1,2.0,0.0,death_detected,1.3572964668273926,,,no heartbeat for 1.357s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303151.850583,44.85677146911621,n-s0-r0,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303151.9531689,44.959357023239136,n-s0-r1,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303167.6579914,60.66417980194092,n-s0-r1,2.0,0.0,death_detected,1.0367751121520996,,,no heartbeat for 1.037s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303167.6581278,60.66431641578674,n-s2-r1,2.0,2.0,death_detected,1.0219166278839111,,,no heartbeat for 1.022s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303167.7591054,60.76529407501221,n-s1-r1,2.0,1.0,death_detected,1.0094184875488281,,,no heartbeat for 1.009s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303167.7592127,60.765401124954224,n-s2-r0,2.0,2.0,death_detected,1.0113937854766846,,,no heartbeat for 1.011s
+exp4_failover_w2_hb0250-20261029T194506Z,container,synthetic,coordinator,membership,1793303167.8096368,60.81582498550415,n-s0-r0,2.0,0.0,death_detected,1.0199766159057617,,,no heartbeat for 1.020s
+exp4_failover_w2_hb0500-20261029T194610Z,container,synthetic,coordinator,membership,1793303196.8266647,25.944430828094482,n-s1-r0,2.0,1.0,death_detected,2.0526676177978516,24.507145881652832,1.4372460842132568,no heartbeat for 2.053s
+exp4_failover_w2_hb1000-20261029T194714Z,container,synthetic,coordinator,membership,1793303263.0449886,28.389879941940308,n-s1-r0,2.0,1.0,death_detected,4.03688383102417,24.694348335266113,3.695491075515747,no heartbeat for 4.037s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9431577,10.21928095817566,n-s0-r0,2.0,0.0,death_detected,1.4764478206634521,,,no heartbeat for 1.476s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9432135,10.219336986541748,n-s1-r0,2.0,1.0,death_detected,1.4462823867797852,,,no heartbeat for 1.446s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9432404,10.219363689422607,n-s1-r1,2.0,1.0,death_detected,1.3842236995697021,,,no heartbeat for 1.384s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.943261,10.21938419342041,n-s1-r2,2.0,1.0,death_detected,1.4651877880096436,,,no heartbeat for 1.465s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.943292,10.219414949417114,n-s2-r1,2.0,2.0,death_detected,1.4075794219970703,,,no heartbeat for 1.408s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9433105,10.219433784484863,n-s2-r2,2.0,2.0,death_detected,1.4303398132324219,,,no heartbeat for 1.430s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9505842,10.226707458496094,n-s0-r0,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9619248,10.238048076629639,n-s1-r2,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9811575,10.257280826568604,n-s1-r0,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303307.9971008,10.273224115371704,n-s2-r2,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303308.0201945,10.29631781578064,n-s2-r1,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303308.0430305,10.319153785705566,n-s1-r1,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303323.6964383,25.972561597824097,n-s1-r0,2.0,1.0,death_detected,1.040994644165039,25.465303421020508,0.5072147846221924,no heartbeat for 1.041s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1243849,41.4005081653595,n-s0-r0,2.0,0.0,death_detected,1.305192470550537,,,no heartbeat for 1.305s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1244414,41.400564670562744,n-s0-r1,2.0,0.0,death_detected,1.4473676681518555,,,no heartbeat for 1.447s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1244678,41.4005913734436,n-s0-r2,2.0,0.0,death_detected,1.315565586090088,,,no heartbeat for 1.316s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1244876,41.40061092376709,n-s1-r2,2.0,1.0,death_detected,1.3013744354248047,,,no heartbeat for 1.301s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1245065,41.40062975883484,n-s2-r0,2.0,2.0,death_detected,1.4080610275268555,,,no heartbeat for 1.408s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1360512,41.412174463272095,n-s0-r1,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.1751707,41.4512939453125,n-s2-r0,2.0,2.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.2676895,41.54381275177002,n-s0-r2,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.278854,41.55497717857361,n-s0-r0,2.0,0.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303339.2817938,41.55791711807251,n-s1-r2,2.0,1.0,join,,,,heartbeat resumed
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.1803067,61.456430196762085,n-s0-r1,2.0,0.0,death_detected,1.0012931823730469,,,no heartbeat for 1.001s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.2307243,61.506847620010376,n-s2-r0,2.0,2.0,death_detected,1.00339674949646,,,no heartbeat for 1.003s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.3313699,61.60749340057373,n-s0-r0,2.0,0.0,death_detected,1.0048284530639648,,,no heartbeat for 1.005s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.331452,61.60757541656494,n-s0-r2,2.0,0.0,death_detected,1.0154674053192139,,,no heartbeat for 1.015s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.381951,61.658074378967285,n-s1-r1,2.0,1.0,death_detected,1.0081830024719238,,,no heartbeat for 1.008s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.3820152,61.65813851356506,n-s1-r2,2.0,1.0,death_detected,1.030428409576416,,,no heartbeat for 1.030s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.3820496,61.658172607421875,n-s2-r2,2.0,2.0,death_detected,1.0089106559753418,,,no heartbeat for 1.009s
+exp4_failover_w3_hb0250-20261029T194817Z,container,synthetic,coordinator,membership,1793303359.4333038,61.70942711830139,n-s2-r1,2.0,2.0,death_detected,1.0502071380615234,,,no heartbeat for 1.050s
+exp4_failover_w3_hb0500-20261029T194922Z,container,synthetic,coordinator,membership,1793303388.9588666,26.174139261245728,n-s1-r0,2.0,1.0,death_detected,2.05713152885437,24.896259307861328,1.2778398990631104,no heartbeat for 2.057s
+exp4_failover_w3_hb1000-20261029T195027Z,container,synthetic,coordinator,membership,1793303457.5005372,29.542181730270386,n-s1-r0,2.0,1.0,death_detected,4.1966774463653564,26.03084659576416,3.511293888092041,no heartbeat for 4.197s
+exp4_timeout_t0250-20261029T195132Z,container,synthetic,coordinator,membership,1793303519.2063782,26.932705402374268,n-s1-r0,2.0,1.0,death_detected,2.056278705596924,25.765225172042847,1.1674506664276123,no heartbeat for 2.056s
+exp4_timeout_t1000-20261029T195235Z,container,synthetic,coordinator,membership,1793303582.758906,26.900553226470947,n-s1-r0,2.0,1.0,death_detected,2.066084861755371,25.74608564376831,1.1544318199157715,no heartbeat for 2.066s
+exp4_timeout_t2000-20261029T195339Z,container,synthetic,coordinator,membership,1793303646.012213,26.64662528038025,n-s1-r0,2.0,1.0,death_detected,2.0893144607543945,25.712957620620728,0.9336211681365967,no heartbeat for 2.089s
+exp4_timeout_t5000-20261029T195442Z,container,synthetic,coordinator,membership,1793303709.871688,26.966602087020874,n-s1-r0,2.0,1.0,death_detected,2.060056447982788,25.73701286315918,1.2295429706573486,no heartbeat for 2.060s
+exp4_timeout_t5000-20261029T195442Z,container,synthetic,coordinator,membership,1793303744.2046561,61.29957056045532,n-s0-r0,2.0,0.0,death_detected,2.1535613536834717,,,no heartbeat for 2.154s
+exp4_timeout_t5000-20261029T195442Z,container,synthetic,coordinator,membership,1793303744.2047539,61.299668312072754,n-s1-r1,2.0,1.0,death_detected,2.086824417114258,,,no heartbeat for 2.087s

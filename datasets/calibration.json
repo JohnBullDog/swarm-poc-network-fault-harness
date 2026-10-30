@@ -1,0 +1,42 @@
+{
+  "stage_overhead_ms": {
+    "median": 0.709,
+    "mean": 0.709,
+    "stdev": 0.6929,
+    "min": 0.2191,
+    "max": 1.1989,
+    "n": 2
+  },
+  "hop_overhead_ms": {
+    "median": 0.7972,
+    "mean": 0.7972,
+    "stdev": 0.0578,
+    "min": 0.7563,
+    "max": 0.8381,
+    "n": 2
+  },
+  "per_run": [
+    {
+      "run_id": "calib_exp1_concurrency_g04-20261029T191112Z",
+      "scenario": "calib_exp1_concurrency_G04",
+      "depth": 3,
+      "n_nodes": 6,
+      "concurrency": 4,
+      "stage_overhead_ms": 1.1989320833889447,
+      "hop_overhead_ms": 0.7562735191650392,
+      "n_stage_samples": 6,
+      "n_hop_samples": 4
+    },
+    {
+      "run_id": "calib_exp2_delay_d6_l05ms-20261029T191207Z",
+      "scenario": "calib_exp2_delay_D6_l05ms",
+      "depth": 6,
+      "n_nodes": 6,
+      "concurrency": 1,
+      "stage_overhead_ms": 0.21906919873792946,
+      "hop_overhead_ms": 0.8380510917968751,
+      "n_stage_samples": 6,
+      "n_hop_samples": 5
+    }
+  ]
+}

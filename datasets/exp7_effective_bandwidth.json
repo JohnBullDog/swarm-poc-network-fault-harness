@@ -1,0 +1,74 @@
+{
+  "b_eff_bytes_s_median": 6899730877.744387,
+  "b_eff_gbs_median": 6.899730877744386,
+  "b_eff_gbs_mean": 6.740094266671501,
+  "b_eff_gbs_stdev": 1.4142283369446016,
+  "b_eff_gbs_min": 4.990294269204086,
+  "b_eff_gbs_max": 8.324696191390956,
+  "n_samples": 9,
+  "per_stage": [
+    {
+      "run": "exp7_real_g1-20261029T233751Z",
+      "stage": 0,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 58.03799629211426,
+      "b_eff_gbs": 8.224497119625571
+    },
+    {
+      "run": "exp7_real_g1-20261029T233751Z",
+      "stage": 1,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 57.33942985534668,
+      "b_eff_gbs": 8.324696191390956
+    },
+    {
+      "run": "exp7_real_g1-20261029T233751Z",
+      "stage": 2,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 57.72972106933594,
+      "b_eff_gbs": 8.268415722293806
+    },
+    {
+      "run": "exp7_real_g2-20261029T233956Z",
+      "stage": 0,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 69.18144226074219,
+      "b_eff_gbs": 6.899730877744386
+    },
+    {
+      "run": "exp7_real_g2-20261029T233956Z",
+      "stage": 1,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 68.04442405700684,
+      "b_eff_gbs": 7.01502496271302
+    },
+    {
+      "run": "exp7_real_g2-20261029T233956Z",
+      "stage": 2,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 69.6249008178711,
+      "b_eff_gbs": 6.8557847512339
+    },
+    {
+      "run": "exp7_real_g4-20261029T234200Z",
+      "stage": 0,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 94.18690204620361,
+      "b_eff_gbs": 5.067937504719884
+    },
+    {
+      "run": "exp7_real_g4-20261029T234200Z",
+      "stage": 1,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 95.65234184265137,
+      "b_eff_gbs": 4.990294269204086
+    },
+    {
+      "run": "exp7_real_g4-20261029T234200Z",
+      "stage": 2,
+      "weight_bytes": 477333333.3333333,
+      "compute_ms": 95.19124031066895,
+      "b_eff_gbs": 5.014467001117898
+    }
+  ]
+}
