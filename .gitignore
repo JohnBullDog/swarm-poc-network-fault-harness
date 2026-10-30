@@ -12,3 +12,8 @@ datasets/_progress/
 # Research inputs and working notes are not part of this repository.
 *.pdf
 scratch/
+
+# Quarto render intermediates (the .html and its _files/ are committed)
+presentation/*.knit.md
+presentation/*.rmarkdown
+presentation/.quarto/

@@ -1,0 +1,91 @@
+/*-- scss:defaults --*/
+// Palette matched to the figures, so a slide and the chart on it read as one
+// system. These are the validated categorical slots used throughout.
+$body-bg:        #fcfcfb;
+$body-color:     #0b0b0b;
+$link-color:     #2a78d6;
+$presentation-heading-color: #1f3864;
+$presentation-heading-font-weight: 600;
+$presentation-font-size-root: 30px;
+$code-block-font-size: 0.52em;
+$table-font-size: 0.62em;
+
+/*-- scss:rules --*/
+.reveal .slides section {
+  text-align: left;
+}
+
+.reveal h1, .reveal h2, .reveal h3 {
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+.reveal h2 {
+  border-bottom: 2px solid #dedddA;
+  padding-bottom: 0.25em;
+  margin-bottom: 0.6em;
+}
+
+// Section dividers: a full-bleed dark card, so the narrative beats are
+// visible when skimming the deck.
+.reveal .section-title {
+  text-align: left;
+}
+.reveal .section-title h1 {
+  color: #fcfcfb;
+  font-size: 2.1em;
+  padding: 0.4em 0.6em;
+  background: #1f3864;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+// The one takeaway per slide. Deliberately loud: a reader skimming should be
+// able to read only these and still get the argument.
+.reveal .callout-key {
+  border-left: 5px solid #2a78d6;
+  background: #eef4fc;
+  padding: 0.55em 0.9em;
+  margin: 0.7em 0;
+  font-size: 0.86em;
+  border-radius: 0 4px 4px 0;
+}
+
+.reveal table {
+  margin: 0.4em 0;
+  border-collapse: collapse;
+}
+.reveal table th {
+  background: #1f3864;
+  color: #fcfcfb;
+  font-weight: 600;
+  padding: 0.35em 0.6em;
+}
+.reveal table td {
+  padding: 0.3em 0.6em;
+  border-bottom: 1px solid #dedddA;
+}
+.reveal table tr:last-child td {
+  border-bottom: none;
+}
+
+.reveal figcaption,
+.reveal .caption {
+  color: #52514e;
+  font-size: 0.7em;
+}
+
+.reveal code {
+  color: #1f3864;
+}
+
+.reveal .slide-number {
+  color: #52514e;
+  background: transparent;
+}
+
+// Keep a figure from crowding the takeaway below it.
+.reveal .slides section img,
+.reveal .slides section figure {
+  margin: 0.2em auto;
+}

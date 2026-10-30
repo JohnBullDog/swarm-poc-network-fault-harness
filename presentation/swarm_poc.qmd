@@ -1,0 +1,569 @@
+---
+title: "Can a swarm of ordinary machines serve a large language model?"
+subtitle: "Measuring a pipelined, distributed inference network under network faults"
+author: "John Patton"
+date: today
+format:
+  revealjs:
+    theme: [default, custom.scss]
+    slide-number: c/t
+    width: 1300
+    height: 800
+    incremental: false
+    fig-width: 10
+    fig-height: 4.6
+    fig-align: center
+    code-fold: true
+    code-summary: "show the code behind this figure"
+    df-print: kable
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+knitr:
+  opts_chunk:
+    dev: "png"
+    dpi: 160
+---
+
+```{r setup}
+source("_setup.R")
+```
+
+# Why this matters {.section-title}
+
+## The promise, and the catch
+
+A pooled swarm of volunteer machines can **store** a model no single machine
+could hold. Aggregate memory is the one resource such a pool has in abundance.
+
+The catch is that it can only ever be a **throughput engine, never a
+low-latency one**:
+
+::: {.fragment}
+- One generated token must pass through every layer **in sequence**
+- That chain cannot be shortened by adding machines
+- So adding devices buys capacity and throughput — **never single-request speed**
+:::
+
+::: {.fragment .callout-key}
+If that trade is real and quantifiable, a swarm is useful for agent workloads
+and batch work. If the overheads swamp it, the idea does not survive contact
+with a real network.
+:::
+
+## What was actually unknown
+
+A companion analysis derives a cost model for such a swarm from first
+principles. It had **never been tested against a running system**.
+
+Three things were open:
+
+1. Do the predicted **latency** and **throughput** laws hold when real packets
+   cross real links?
+2. What do **disconnections** actually cost, and which knob controls each cost?
+3. Can we **simulate** a swarm large enough to matter, and trust the result?
+
+::: {.callout-key .fragment}
+This work exists to gather data, not to demonstrate features.
+:::
+
+# The claim under test {.section-title}
+
+## Four expressions govern everything
+
+| | |
+|---|---|
+| **Per-token latency** | $T_{token} \approx \dfrac{P_a b + sq}{B} + D(\ell + a/\beta)$ |
+| **Peak throughput** | $X_{max} \approx \dfrac{\sum_i B_i}{P_a b + s q}$ |
+| **Utilisation ramp** | $X(G) \approx X_{max}\cdot\min(1,\, G/N)$ |
+| **Straggler gate** | $X_{pipe} = 1/\max_k t_k$ |
+
+::: {.callout-key}
+The decisive detail: the latency term uses **one** device's bandwidth $B$, not
+the sum. Adding devices cannot shrink it. Throughput scales linearly; latency
+does not scale at all.
+:::
+
+::: {.notes}
+D = pipeline stages, W = replicas per stage, N = D x W, G = concurrent streams,
+P_a = active parameters per token, b = bytes per parameter, B = memory
+bandwidth, l = per-hop latency, a = activation bytes, beta = link bandwidth.
+:::
+
+## How you test that without 1000 volunteers
+
+Docker containers stand in for volunteer devices on **one** machine.
+
+::: {.columns}
+::: {.column width="50%"}
+**Two engines**, sharing all decision code
+
+| | containers | virtual |
+|---|---|---|
+| clock | real | simulated |
+| network | real TCP + `tc netem` | analytic |
+| scale | ~60 nodes | 1000+ |
+| speed | wall-clock | ~100k events/s |
+:::
+::: {.column width="50%"}
+**Two compute modes**
+
+| | real | synthetic |
+|---|---|---|
+| worker | Qwen2.5-0.5B layers on CPU | sleeps the predicted time |
+| payload | real tensors | same-size bytes |
+:::
+:::
+
+The engines differ **only** in how time passes and how a message crosses a
+link. That is what makes comparing them meaningful.
+
+# Reading the numbers {.section-title}
+
+## What one data point is
+
+Every point in every chart that follows is **one complete run**: a stack of
+containers started from a scenario file, loaded for 45–180 seconds, then torn
+down and collected.
+
+| term | meaning | units |
+|---|---|---|
+| **G** | concurrent agent streams held in flight | count |
+| **D** | pipeline stages (model layers cut into D blocks) | count |
+| **W** | replicas per stage | count |
+| **p50 latency** | *median* time for one token, gateway→gateway | ms |
+| **throughput** | tokens completed ÷ steady-state window | tokens/s |
+| **ℓ** | emulated one-way per-hop link delay | ms |
+
+::: {.callout-key}
+Compare the model against **p50, not the mean**. A hop timeout during a fault
+puts multi-second outliers in the sample; the mean then reports the stalls
+rather than the latency being predicted.
+:::
+
+## Two rules that keep this honest
+
+::: {.columns}
+::: {.column width="50%"}
+**Predictions carry no fitted correction**
+
+An earlier version fitted an overhead term and folded it into the predictions.
+Agreement looked excellent — a ratio of 1.017.
+
+It was circular: the worker *slept* the overhead the fit then re-measured.
+Successive fits diverged 1.2 → 2.2 → 3.3 ms.
+
+Removed. The measured/predicted gap is now reported, not subtracted out.
+:::
+::: {.column width="50%"}
+**Nothing is discarded, only labelled**
+
+Warm-up and fault-affected rows carry `in_steady_state` and `fault_window`
+flags.
+
+A reader can see exactly what a summary excluded, and choose differently.
+
+12,479 automated checks verify the output's schema, units, joins and
+completeness.
+:::
+:::
+
+# Finding 1 {.section-title}
+
+## Hop latency accumulates at exactly the pipeline depth
+
+```{r delay-sweep, fig.height=4.3}
+lab <- exp2 |> group_by(depth_D) |> filter(sweep_delay_ms == max(sweep_delay_ms))
+ggplot(exp2, aes(sweep_delay_ms, meas_t_token_s_p50 * 1000,
+                 colour = factor(depth_D))) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.4) +
+  geom_text(data = lab, aes(label = paste0("D = ", depth_D)),
+            hjust = -0.25, size = 4.2, show.legend = FALSE) +
+  scale_colour_manual(values = unname(PAL[1:4]),
+                      name = "pipeline depth D") +
+  scale_x_continuous(breaks = c(1, 5, 25, 50),
+                     expand = expansion(mult = c(0.03, 0.16))) +
+  labs(x = "emulated one-way per-hop delay  ℓ  (ms)",
+       y = "measured p50 per-token latency (ms)",
+       title = "16 runs: pipeline depth D crossed with per-hop delay",
+       caption = paste("Each point = one run at W=1, G=1 (no replicas, no",
+                       "concurrency, so nothing queues and the hop term is",
+                       "isolated).")) +
+  theme_swarm() + theme(legend.title = element_text(colour = MUTED,
+                                                    size = 12))
+```
+
+::: {.callout-key}
+Lines are straight and fan out by depth. The *slope* of each line is the
+measurement.
+:::
+
+## The slope is D, to within 0.2%
+
+```{r slope-table}
+exp2_slopes |>
+  transmute(`pipeline depth D` = depth_D,
+            `measured slope (ms latency per ms of hop delay)` = round(slope, 4),
+            `predicted slope (= D)` = predicted,
+            `error` = sprintf("%+.2f%%", err_pct),
+            `R²` = sprintf("%.6f", r2)) |>
+  knitr::kable(align = "r")
+```
+
+::: {.callout-key}
+This is the cost model's $D(\ell + a/\beta)$ term **confirmed directly**. The
+network cost of a token is the per-hop delay multiplied by the number of
+stages — no more, no less.
+:::
+
+**Why it matters:** depth is nearly free on a fast LAN and dominant on slow
+links. Going from D=2 to D=6 costs 17 ms at ℓ=1 ms, and 213 ms at ℓ=50 ms.
+*Deep pipelines over slow links are the combination to avoid.*
+
+# Finding 2 {.section-title}
+
+## The published ramp is an upper bound, not a prediction
+
+```{r concurrency, fig.height=4.3}
+d <- exp1 |>
+  select(G = concurrency_G, measured = meas_throughput_tok_s,
+         `X_max · min(1, G/N)` = pred_x_of_g_tok_s,
+         `min(G/T_token, W/max compute)` = pred_x_closed_loop_tok_s) |>
+  pivot_longer(-G, names_to = "series", values_to = "tok_s") |>
+  mutate(series = factor(series, levels = c(
+    "measured", "X_max · min(1, G/N)", "min(G/T_token, W/max compute)")))
+
+ggplot(d, aes(G, tok_s, colour = series, linetype = series)) +
+  geom_vline(xintercept = 6, colour = MUTED, linetype = "dotted") +
+  annotate("text", x = 6.4, y = 6, label = "G = N = 6", hjust = 0,
+           colour = MUTED, size = 3.8) +
+  geom_line(linewidth = 1) +
+  geom_point(data = filter(d, series == "measured"), size = 2.4,
+             show.legend = FALSE) +
+  scale_colour_manual(values = unname(PAL[c(1, 2, 3)])) +
+  scale_linetype_manual(values = c("solid", "dashed", "dashed")) +
+  labs(x = "concurrent agent streams  G", y = "throughput (tokens/s)",
+       title = "10 runs: concurrency swept on a fixed 6-node pool",
+       caption = paste("Each point = one 60 s run, D=3, W=2, no faults.",
+                       "Zero requests failed at any point.")) +
+  theme_swarm()
+```
+
+::: {.callout-key}
+Measured throughput runs at **0.67 of the published ramp** throughout the
+linear region — remarkably steady, which says it is a systematic bias, not noise.
+:::
+
+## Why it is off, and what to use instead
+
+The ramp assumes a stream keeps a node busy **continuously**. But a stream sits
+idle while its activation is on the wire.
+
+The achievable rate is the smaller of two classical bounds:
+
+$$X \;=\; \min\!\Big(\underbrace{G / T_{token}}_{\text{delay bound}},\;\; \underbrace{W / \max_k \text{compute}_k}_{\text{capacity bound}}\Big)$$
+
+```{r closed-loop-fit}
+tibble::tibble(
+  metric = c("measured ÷ published ramp", "measured ÷ closed-loop bound"),
+  mean   = c(mean(exp1$meas_throughput_tok_s / exp1$pred_x_of_g_tok_s),
+             mean(exp1$meas_throughput_tok_s / exp1$pred_x_closed_loop_tok_s)),
+  sd     = c(sd(exp1$meas_throughput_tok_s / exp1$pred_x_of_g_tok_s),
+             sd(exp1$meas_throughput_tok_s / exp1$pred_x_closed_loop_tok_s))
+) |>
+  mutate(across(c(mean, sd), ~round(.x, 3))) |>
+  knitr::kable(align = "lrr",
+               col.names = c("", "mean ratio", "sd across 10 runs"))
+```
+
+::: {.callout-key}
+The knee lands where predicted: capacity × $T_{token}$ = 7.8, and the transition
+is observed between G=6 and G=8.
+:::
+
+## The ramp is not wrong — its slack is the network share
+
+Re-run at the **research report's own scale** (N=1000, D=50, 1T-param MoE),
+where compute is 3 seconds and the network is 50 ms:
+
+```{r scale-compare}
+tibble::tibble(
+  scale = c("this host (D=3, ℓ=5 ms)", "report scale (D=50, ℓ=1 ms)"),
+  `network share of T_token` = c("21%", "1.6%"),
+  `ramp error` = c("32% optimistic", "1–2%"),
+  `measured ÷ ramp` = c(
+    sprintf("%.3f", mean(exp1$meas_throughput_tok_s / exp1$pred_x_of_g_tok_s)),
+    sprintf("%.3f", mean(exp1s$meas_throughput_tok_s / exp1s$pred_x_of_g_tok_s)))
+) |> knitr::kable(align = "lrrr")
+```
+
+::: {.callout-key}
+The ramp's error **tracks the fraction of per-token time spent on the network**.
+At the scale the model was written for, it is an excellent predictor. On a fast
+LAN with a shallow pipeline, it is not.
+:::
+
+This also reproduced the report's independently-derived figures: $X_{max}$
+333.3 vs ~333 tok/s, $T_{token}$ 3.054 vs ~3.05 s, saturation at G ≈ N = 1000.
+
+# Finding 3 {.section-title}
+
+## A node dies: three costs, three different knobs
+
+```{r failover, fig.height=4.0}
+arm <- recov |>
+  inner_join(select(exp4, run_id, width_W, heartbeat_ms, sweep_arm),
+             by = "run_id") |>
+  filter(sweep_arm == "W_x_heartbeat") |>
+  group_by(heartbeat_ms, width_W) |>
+  summarise(detection = mean(detection_s), .groups = "drop")
+
+ggplot(arm, aes(factor(heartbeat_ms), detection, fill = factor(width_W))) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.7) +
+  geom_line(aes(x = as.numeric(factor(heartbeat_ms)),
+                y = heartbeat_ms * 4 / 1000),
+            colour = MUTED, linewidth = 1, linetype = "dashed",
+            inherit.aes = FALSE) +
+  annotate("text", x = 1.05, y = 3.6, hjust = 0, size = 4,
+           colour = MUTED,
+           label = "dashed: configured death threshold (4 x heartbeat)") +
+  scale_fill_manual(values = unname(PAL[c(1, 2, 3)]),
+                    name = "replicas per stage",
+                    labels = paste("W =", c(1, 2, 3))) +
+  labs(x = "heartbeat interval (ms)", y = "mean detection time (s)",
+       title = "Detection time is set by the heartbeat, and by nothing else",
+       caption = paste("Each bar = mean over runs at that setting.",
+                       "One kill of a middle-stage replica at t=20 s.")) +
+  theme_swarm() + theme(legend.title = element_text(colour = MUTED,
+                                                    size = 12))
+```
+
+::: {.callout-key}
+Detection scales with the heartbeat and is **independent of replica count** —
+the three bars at each interval are nearly equal.
+:::
+
+## But detection is not recovery, and replicas are not optional
+
+```{r failover-table}
+recov |>
+  inner_join(select(exp4, run_id, width_W, heartbeat_ms, sweep_arm,
+                    requests_failed, requests_ok), by = "run_id") |>
+  filter(sweep_arm == "W_x_heartbeat", heartbeat_ms == 500) |>
+  transmute(`replicas W` = width_W,
+            `detection (s)` = round(detection_s, 2),
+            `recovery (s)` = ifelse(is.na(recovery_s), "never",
+                                    sprintf("%.2f", recovery_s)),
+            `requests failed` = requests_failed,
+            `requests OK` = requests_ok) |>
+  knitr::kable(align = "r")
+```
+
+::: {.columns}
+::: {.column width="50%"}
+::: {.callout-key}
+**W=1 is a cliff, not a slope.** With no surviving replica the stage is gone
+for the rest of the run: over a thousand requests fail and recovery never
+happens. A faster heartbeat does not help — it detects the loss sooner, and
+there is still nowhere to route.
+:::
+:::
+::: {.column width="50%"}
+::: {.callout-key}
+**Recovery is governed by the client's hop timeout**, not by detection. Holding
+the heartbeat fixed and sweeping the timeout from 250 ms to 5 s moved recovery
+from 1.5 s to 3.9 s while detection stayed flat at ~1.4–1.6 s.
+:::
+:::
+:::
+
+**Why it matters:** tuning the wrong parameter does nothing. Detection ← heartbeat.
+Recovery ← client timeout. Failed requests ← replica count.
+
+# Finding 4 {.section-title}
+
+## The uncomfortable one: does the simulation tell the truth?
+
+Same scenario, real Qwen2.5-0.5B layers on CPU vs synthetic workers.
+
+```{r mode-check, fig.height=3.9}
+m <- exp7 |>
+  mutate(arm = recode(arm,
+                      synthetic_nominal = "synthetic, tier-table bandwidth",
+                      synthetic_calibrated = "synthetic, bandwidth fitted from real"))
+ggplot(m, aes(concurrency_G, abs(p50_rel_err), colour = arm)) +
+  geom_hline(yintercept = 0.15, linetype = "dotted", colour = MUTED) +
+  annotate("text", x = 1, y = 0.205, hjust = 0, size = 3.6, colour = MUTED,
+           label = "15% tolerance") +
+  geom_line(linewidth = 1) + geom_point(size = 3) +
+  scale_colour_manual(values = unname(PAL[c(2, 1)])) +
+  scale_y_continuous(labels = percent_format(accuracy = 1),
+                     limits = c(0, NA)) +
+  scale_x_continuous(breaks = c(1, 2, 4)) +
+  labs(x = "concurrent streams  G", y = "|error| in p50 latency vs real mode",
+       title = "Synthetic timing against real: error grows with load",
+       caption = paste("Each point = one real run paired with one synthetic",
+                       "run at the same G. 9 runs total.")) +
+  theme_swarm()
+```
+
+::: {.callout-key}
+Using the tier table's nominal bandwidth, synthetic mode is **77–86% wrong**.
+Tier bandwidths are *ratios*, not achievable speeds.
+:::
+
+## What the mode check licenses — and what it forbids
+
+::: {.columns}
+::: {.column width="48%"}
+**Good news**
+
+Fitting effective bandwidth from the real runs — measured **6.9 GB/s** against
+a 45 GB/s nominal, 6.5× optimistic — brings single-stream agreement to **3.9%**.
+
+The memory-bound model of a decode step is sound.
+:::
+::: {.column width="52%"}
+**Bad news**
+
+Error grows to **31% at G=4**, because synthetic mode cannot reproduce CPU
+contention:
+
+```{r contention}
+tibble::tibble(
+  G = c(1, 2, 4),
+  `real stage compute (ms)` = c(57.7, 68.8, 94.7),
+  `synthetic (ms)` = c(70, 70, 70)
+) |> knitr::kable(align = "r")
+```
+
+It also has no prefill/decode asymmetry, so it over-predicts **throughput by
+1.6–2.2×**.
+:::
+:::
+
+::: {.callout-key}
+Synthetic results are evidence about **network and churn effects**. They are
+*not* evidence about a real deployment's absolute throughput.
+:::
+
+## Why you can believe the 1000-node numbers
+
+The virtual engine is only as good as its agreement with real containers.
+Running identical scenarios on both:
+
+```{r engine-agreement}
+tibble::tibble(
+  axis = c("per-token p50 latency", "throughput", "stage compute",
+           "stage network time", "aggregate queue wait (at saturation)"),
+  `median error` = c("1.6%", "7.0%", "0.0%", "4.1%", "5.1%"),
+  verdict = c("agrees", "over-predicts, knowably", "agrees", "agrees",
+              "agrees")
+) |> knitr::kable(align = "lrl")
+```
+
+::: {.callout-key}
+Trustworthy for latency, compute, network and *aggregate* queueing. **Not**
+trustworthy for queue-wait distribution or tail latency: deterministic service
+concentrates all waiting in a third of hops where real jitter smears it.
+:::
+
+# What this supports {.section-title}
+
+## The claims the data will carry
+
+::: {.columns}
+::: {.column width="50%"}
+**Supported**
+
+- Network latency accumulates at exactly $D$ — to 0.2%
+- The published ramp is an upper bound; its slack is the network share of
+  per-token time
+- A closed-loop bound predicts throughput to 0.88 ± 0.03 over a 32× range of
+  concurrency
+- Detection, recovery and failure count are governed by three *different*
+  parameters
+- Replication is for survival before throughput: W=1 is a cliff
+:::
+::: {.column width="50%"}
+**Not supported**
+
+- Any statement about a real deployment's absolute throughput
+- Anything about tail latency at scale
+- Anything about what a Raspberry Pi would actually do — tiers preserve
+  *ratios*, measured 6.5× optimistic
+- Anything about integrity, trust or adversarial nodes — out of scope,
+  all containers trusted
+:::
+:::
+
+## The honest limits
+
+1. **n = 1.** Every point is a single run on a single seed. Nothing here has
+   error bars, and run-to-run variance is unquantified. *This is the largest
+   remaining gap.*
+2. **One host.** All containers share its CPU and memory bandwidth; cgroup
+   limits reduce but do not eliminate interference.
+3. **Synthetic mode omits CPU contention and prefill cost.**
+4. **`tc` is not a home network.** It models delay and loss well, not full link
+   behaviour.
+5. **The virtual engine's loss model is TCP's best case**, so loss results are
+   a lower bound on the real penalty.
+
+::: {.callout-key}
+Six defects were found and fixed during the work — a circular calibration, a
+transport artifact that would have doubled the delay sweep's slope, and four
+others. Each would have produced confident-looking, wrong numbers.
+:::
+
+## What would change the conclusions
+
+| to establish | you would need |
+|---|---|
+| that these effects are **real, not noise** | the sweeps re-run across several seeds, with error bars |
+| **absolute** throughput for a real deployment | real mode at scale, or a prefill-aware synthetic model |
+| behaviour under **sustained churn** | the random churn model run for hours, not one scripted kill |
+| **tail** latency at scale | containers at scale, or a jitter model in the virtual engine |
+| that it survives **real networks** | multi-host deployment; `tc` cannot answer this |
+
+::: {.callout-key}
+The harness is built to answer all of these: the scenarios are data, the runs
+are repeatable, and the analysis re-derives from raw logs in seconds.
+:::
+
+## Everything is reproducible
+
+::: {.columns}
+::: {.column width="55%"}
+```bash
+# one scenario
+python -m swarm.runner.run scenarios/m1_minimal.yaml
+
+# a whole experiment
+python -m swarm.runner.drive exp1
+
+# the mode check (3 phases)
+python -m tools.mode_check
+
+# check the output is tidy
+python -m tools.verify_tidy
+```
+:::
+::: {.column width="45%"}
+**`github.com/JohnBullDog/`**
+**`swarm-poc-network-fault-harness`**
+
+- 48 runs, every parameter and prediction on the row
+- per-observation detail so any summary can be re-checked
+- 99 of 99 columns documented with units
+- 12,479 tidiness assertions
+:::
+:::
+
+::: {.callout-key}
+Every figure in this deck was computed from the published CSVs at render time.
+Nothing was typed in by hand.
+:::
