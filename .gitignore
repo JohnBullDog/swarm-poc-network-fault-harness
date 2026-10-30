@@ -13,7 +13,8 @@ datasets/_progress/
 *.pdf
 scratch/
 
-# Quarto render intermediates (the .html and its _files/ are committed)
-presentation/*.knit.md
-presentation/*.rmarkdown
-presentation/.quarto/
+# Quarto render intermediates (the rendered .html/.pdf and their _files/
+# directories are committed; these are caches and downloaded dependencies).
+**/.quarto/
+*.knit.md
+*.rmarkdown
