@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="John Patton">
+<meta name="dcterms.date" content="2026-10-29">
+
+<title>Measuring a pipelined distributed LLM inference network under network faults</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="swarm_poc_paper_files/libs/clipboard/clipboard.min.js"></script>
+<script src="swarm_poc_paper_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="swarm_poc_paper_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="swarm_poc_paper_files/libs/quarto-html/popper.min.js"></script>
+<script src="swarm_poc_paper_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="swarm_poc_paper_files/libs/quarto-html/anchor.min.js"></script>
+<link href="swarm_poc_paper_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="swarm_poc_paper_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="swarm_poc_paper_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="swarm_poc_paper_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="swarm_poc_paper_files/libs/bootstrap/bootstrap-e7df00d12af40ff592ceab7775e276e6.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article toc-left">
+<div id="quarto-sidebar-toc-left" class="sidebar toc-left">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a>
+  <ul class="collapse">
+  <li><a href="#the-promise-and-the-constraint" id="toc-the-promise-and-the-constraint" class="nav-link" data-scroll-target="#the-promise-and-the-constraint"><span class="header-section-number">1.1</span> The promise and the constraint</a></li>
+  <li><a href="#what-was-unknown" id="toc-what-was-unknown" class="nav-link" data-scroll-target="#what-was-unknown"><span class="header-section-number">1.2</span> What was unknown</a></li>
+  <li><a href="#contributions" id="toc-contributions" class="nav-link" data-scroll-target="#contributions"><span class="header-section-number">1.3</span> Contributions</a></li>
+  </ul></li>
+  <li><a href="#sec-model" id="toc-sec-model" class="nav-link" data-scroll-target="#sec-model"><span class="header-section-number">2</span> The cost model under test</a></li>
+  <li><a href="#sec-method" id="toc-sec-method" class="nav-link" data-scroll-target="#sec-method"><span class="header-section-number">3</span> Method</a>
+  <ul class="collapse">
+  <li><a href="#why-a-harness-rather-than-a-deployment" id="toc-why-a-harness-rather-than-a-deployment" class="nav-link" data-scroll-target="#why-a-harness-rather-than-a-deployment"><span class="header-section-number">3.1</span> Why a harness rather than a deployment</a></li>
+  <li><a href="#two-engines" id="toc-two-engines" class="nav-link" data-scroll-target="#two-engines"><span class="header-section-number">3.2</span> Two engines</a></li>
+  <li><a href="#two-compute-modes" id="toc-two-compute-modes" class="nav-link" data-scroll-target="#two-compute-modes"><span class="header-section-number">3.3</span> Two compute modes</a></li>
+  <li><a href="#tier-emulation" id="toc-tier-emulation" class="nav-link" data-scroll-target="#tier-emulation"><span class="header-section-number">3.4</span> Tier emulation</a></li>
+  <li><a href="#measurement-discipline" id="toc-measurement-discipline" class="nav-link" data-scroll-target="#measurement-discipline"><span class="header-section-number">3.5</span> Measurement discipline</a></li>
+  <li><a href="#experimental-design" id="toc-experimental-design" class="nav-link" data-scroll-target="#experimental-design"><span class="header-section-number">3.6</span> Experimental design</a></li>
+  </ul></li>
+  <li><a href="#sec-results" id="toc-sec-results" class="nav-link" data-scroll-target="#sec-results"><span class="header-section-number">4</span> Results</a>
+  <ul class="collapse">
+  <li><a href="#sec-delay" id="toc-sec-delay" class="nav-link" data-scroll-target="#sec-delay"><span class="header-section-number">4.1</span> Network latency accumulates at exactly the pipeline depth</a></li>
+  <li><a href="#sec-concurrency" id="toc-sec-concurrency" class="nav-link" data-scroll-target="#sec-concurrency"><span class="header-section-number">4.2</span> The utilisation ramp is an upper bound, not a predictor</a></li>
+  <li><a href="#sec-scale" id="toc-sec-scale" class="nav-link" data-scroll-target="#sec-scale"><span class="header-section-number">4.3</span> The ramp’s error is the network’s share of per-token time</a></li>
+  <li><a href="#sec-failover" id="toc-sec-failover" class="nav-link" data-scroll-target="#sec-failover"><span class="header-section-number">4.4</span> Failover: three costs, three different parameters</a></li>
+  <li><a href="#sec-modecheck" id="toc-sec-modecheck" class="nav-link" data-scroll-target="#sec-modecheck"><span class="header-section-number">4.5</span> Mode check: what simulated timings can and cannot support</a></li>
+  <li><a href="#sec-engines" id="toc-sec-engines" class="nav-link" data-scroll-target="#sec-engines"><span class="header-section-number">4.6</span> Engine agreement</a></li>
+  </ul></li>
+  <li><a href="#sec-threats" id="toc-sec-threats" class="nav-link" data-scroll-target="#sec-threats"><span class="header-section-number">5</span> Threats to validity</a></li>
+  <li><a href="#sec-supports" id="toc-sec-supports" class="nav-link" data-scroll-target="#sec-supports"><span class="header-section-number">6</span> What the data supports</a></li>
+  <li><a href="#sec-future" id="toc-sec-future" class="nav-link" data-scroll-target="#sec-future"><span class="header-section-number">7</span> Future work</a></li>
+  <li><a href="#sec-availability" id="toc-sec-availability" class="nav-link" data-scroll-target="#sec-availability"><span class="header-section-number">8</span> Data and code availability</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="swarm_poc_paper.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
+</div>
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Measuring a pipelined distributed LLM inference network under network faults</h1>
+<p class="subtitle lead">An empirical test of a heterogeneous-swarm cost model</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>John Patton </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 29, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+<div>
+  <div class="abstract">
+    <div class="block-title">Abstract</div>
+    <p>A pooled swarm of volunteer machines can store a language model that no single member could hold, but theory predicts it can only ever be a throughput engine and never a low-latency one. A companion analysis derives a cost model for such a swarm from first principles; that model had not been tested against a running system. This paper reports an empirical test. A harness of Docker containers standing in for volunteer devices, with traffic-control fault injection and a matched virtual-clock engine for larger pools, was used to run 48 configurations across four experiments. Three of the model’s predictions hold: per-token network cost accumulates at exactly the pipeline depth (measured slopes within 0.2% of <span class="math inline">\(D\)</span>, <span class="math inline">\(R^2 \approx
+    1.000000\)</span>); the peak-throughput expression is reproduced to three significant figures at a scale derived independently of this code; and a pipeline’s capacity is set by its slowest stage. One prediction requires correction: the published utilisation ramp <span class="math inline">\(X_{max}\min(1, G/N)\)</span> is an upper bound whose slack equals the fraction of per-token time spent on the network, overshooting measurement by 32% on a shallow fast-link pipeline and by 1–2% at the scale the model was written for. A closed-loop bound tracks measurement at <span class="math inline">\(0.88 \pm 0.03\)</span> across a 32-fold range of concurrency. Separately, a deliberate real-versus-simulated comparison shows that simulated timings reproduce real decode latency to 3.9% at a single stream but degrade to 31% at four, because they model neither CPU contention nor prefill cost; this bounds what every simulated result here can support.</p>
+  </div>
+</div>
+
+
+</header>
+
+
+<section id="introduction" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
+<section id="the-promise-and-the-constraint" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="the-promise-and-the-constraint"><span class="header-section-number">1.1</span> The promise and the constraint</h2>
+<p>Pooling many weak, unreliable, heterogeneous machines can store and serve a model that no single unit could hold. Aggregate memory is the one resource such a pool has in abundance: a few thousand consumer machines hold more memory between them than any single accelerator.</p>
+<p>The constraint is structural rather than engineering. Autoregressive decoding reads a subset of the model’s weights once per generated token, so inference is bound by memory bandwidth far more often than by arithmetic; and a single generated token must pass through the model’s layers <em>in sequence</em>, so one request cannot be made faster by adding machines. Only more requests can be served at once. A swarm is therefore good at doing a thousand things at once slowly, and bad at doing one thing quickly.</p>
+<p>Whether that trade is useful depends entirely on its magnitude, and magnitude is an empirical question.</p>
+</section>
+<section id="what-was-unknown" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="what-was-unknown"><span class="header-section-number">1.2</span> What was unknown</h2>
+<p>A companion analysis derives a cost model for such a swarm and states four governing expressions (§2). Those expressions had never been checked against a running system. Three questions were open:</p>
+<ol type="1">
+<li>Do the predicted latency and throughput laws hold when real packets cross real links, with real serialisation and real queueing?</li>
+<li>What does a node disconnection actually cost, and which parameter controls each component of that cost?</li>
+<li>Can a swarm large enough to matter be simulated, and can the simulation be trusted?</li>
+</ol>
+</section>
+<section id="contributions" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="contributions"><span class="header-section-number">1.3</span> Contributions</h2>
+<p>This paper reports:</p>
+<ul>
+<li>A <strong>direct confirmation</strong> of the model’s network term: per-token latency accumulates at exactly the pipeline depth, to within 0.2% (§4.1).</li>
+<li>A <strong>correction</strong> to its utilisation ramp, which is an upper bound rather than a predictor, together with the quantity that determines its error and a substitute bound that tracks measurement (§4.2, §4.3).</li>
+<li>A <strong>decomposition of failover cost</strong> into three quantities governed by three different parameters, with the finding that replication is categorical rather than incremental (§4.4).</li>
+<li>A <strong>negative result</strong> delimiting what simulated timings can support (§4.5), and a quantified agreement between the two engines that licenses the large-scale results (§4.6).</li>
+<li>An <strong>open harness and dataset</strong> in which every figure here is recomputed from published data at render time (§8).</li>
+</ul>
+</section>
+</section>
+<section id="sec-model" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> The cost model under test</h1>
+<p>Four expressions govern the system. <span class="math inline">\(N\)</span> devices are arranged as <span class="math inline">\(D\)</span> pipeline stages with <span class="math inline">\(W\)</span> replicas each (<span class="math inline">\(N = D \times W\)</span>); <span class="math inline">\(G\)</span> independent token streams are in flight; device <span class="math inline">\(i\)</span> has memory bandwidth <span class="math inline">\(B_i\)</span>; a model has <span class="math inline">\(P_a\)</span> active parameters per token at <span class="math inline">\(b\)</span> bytes each; context length is <span class="math inline">\(s\)</span> with <span class="math inline">\(q\)</span> KV bytes per token; links have one-way latency <span class="math inline">\(\ell\)</span>, bandwidth <span class="math inline">\(\beta\)</span>, and carry an activation of <span class="math inline">\(a\)</span> bytes per hop.</p>
+<p><span id="eq-latency"><span class="math display">\[T_{token} \approx \underbrace{\frac{P_a b + s q}{B}}_{\text{memory-bound compute}} + \underbrace{D\left(\ell + \frac{a}{\beta}\right)}_{\text{network}} \tag{1}\]</span></span></p>
+<p><span id="eq-throughput"><span class="math display">\[X_{max} \approx \frac{\sum_{i=1}^{N} B_i}{P_a b + s q} \qquad\qquad X(G) \approx X_{max}\cdot\min\!\left(1, \frac{G}{N}\right) \tag{2}\]</span></span></p>
+<p><span id="eq-pipe"><span class="math display">\[X_{pipe} = \frac{1}{\max_k t_k}, \qquad t_k = \frac{W_k b + \mathrm{KV}_k}{B_k} + \ell \tag{3}\]</span></span></p>
+<p>The decisive feature of <a href="#eq-latency" class="quarto-xref">Equation&nbsp;1</a> is that its first term uses <em>one</em> device’s bandwidth <span class="math inline">\(B\)</span>, not the sum over devices. Adding units cannot shrink it, and the <span class="math inline">\(D\)</span>-hop term means latency grows slightly with scale. By contrast <span class="math inline">\(X_{max}\)</span> in <a href="#eq-throughput" class="quarto-xref">Equation&nbsp;2</a> grows linearly with device count — but only if enough independent requests are supplied to fill the pipeline, which is what the ramp <span class="math inline">\(X(G)\)</span> expresses. <a href="#eq-pipe" class="quarto-xref">Equation&nbsp;3</a> states that a pipeline runs no faster than its slowest stage, which is where hardware heterogeneity does its damage.</p>
+</section>
+<section id="sec-method" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Method</h1>
+<section id="why-a-harness-rather-than-a-deployment" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="why-a-harness-rather-than-a-deployment"><span class="header-section-number">3.1</span> Why a harness rather than a deployment</h2>
+<p>Testing these expressions on real volunteer hardware would confound the model’s predictions with the idiosyncrasies of whatever machines happened to volunteer. The harness instead runs Docker containers on a single host as stand-ins for volunteer devices, so that composition, link conditions and failures are all set by a scenario file and are repeatable.</p>
+<p>This buys control at the cost of realism, and §6 states the limits that follow.</p>
+</section>
+<section id="two-engines" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="two-engines"><span class="header-section-number">3.2</span> Two engines</h2>
+<p>Both engines import the <em>same</em> decision code — cost model, placement, replica routing, membership and death detection, churn generation, and the event schema. They differ only in how time passes and how a message crosses a link.</p>
+<div id="tbl-engines" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-engines-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Container engine</th>
+<th>Virtual engine</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Clock</td>
+<td>real; a stage genuinely sleeps</td>
+<td>simulated, advanced by an event scheduler</td>
+</tr>
+<tr class="even">
+<td>Network</td>
+<td>real TCP through <code>tc netem</code> and <code>tbf</code> on a Docker bridge</td>
+<td>analytic delay, jitter, loss, serialisation</td>
+</tr>
+<tr class="odd">
+<td>Scale on this host</td>
+<td>~60 nodes</td>
+<td>1000+ nodes</td>
+</tr>
+<tr class="even">
+<td>Speed</td>
+<td>wall-clock</td>
+<td>~100,000 events/second</td>
+</tr>
+<tr class="odd">
+<td>Status</td>
+<td>the measurement of record</td>
+<td>used only where §4.6 shows agreement</td>
+</tr>
+</tbody>
+</table>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-engines-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: The two engines. Sharing all decision code is what makes comparing them a comparison of engines rather than of configurations.
+</figcaption>
+</figure>
+</div>
+<p>The virtual engine exists because this host has 16 GB of RAM, which caps container mode at roughly sixty nodes, while the configurations of interest reach <span class="math inline">\(N = 1000\)</span>.</p>
+</section>
+<section id="two-compute-modes" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="two-compute-modes"><span class="header-section-number">3.3</span> Two compute modes</h2>
+<p>In <strong>synthetic mode</strong> a stage worker sleeps for the time the cost model predicts and forwards placeholder bytes of exactly the activation size. In <strong>real mode</strong> it holds a contiguous block of Qwen2.5-0.5B layers, runs them on CPU in float32, and forwards real hidden-state tensors; the gateway performs tokenisation, embedding and the output head. Decoding is greedy so that runs are reproducible and output remains checkable after a failover.</p>
+</section>
+<section id="tier-emulation" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="tier-emulation"><span class="header-section-number">3.4</span> Tier emulation</h2>
+<p>Device tiers are emulated <em>relative to each other</em>; one host cannot reproduce a real GPU or a microcontroller. Memory bandwidth and availability drive the cost model, while cgroup CPU and memory limits and <code>tc</code> parameters preserve the tiers’ ratios. §4.5 measures how far the absolute values are from achievable, and the answer is a factor of 6.5.</p>
+</section>
+<section id="measurement-discipline" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="measurement-discipline"><span class="header-section-number">3.5</span> Measurement discipline</h2>
+<p>Three decisions do more for the credibility of what follows than any amount of additional data would.</p>
+<p><strong>Predictions carry no fitted correction.</strong> An earlier version of this work fitted a per-stage and per-hop overhead term and folded it into the predictions. Agreement improved markedly, to a latency ratio of 1.017. The fit was circular: the stage worker <em>slept</em> <code>bare + configured overhead</code> while the fit measured the residual against <code>bare</code>, so each fit re-absorbed the sleep the previous one had introduced, and successive fits diverged (1.2 → 2.2 → 3.3 ms per stage). Once the circularity was removed the residual proved not to be a constant at all but a function of event-loop load. The correction was abandoned. Predicted values in this paper are the cost model itself, and the measured-to-predicted gap is reported rather than subtracted out.</p>
+<p><strong>The median, not the mean, is compared against the model.</strong> A hop timeout during a fault places multi-second outliers in the latency sample. In one run the mean was 195 ms against a median of 83.7 ms and a prediction of 76 ms: the mean was reporting stalls rather than latency. Both statistics are published; only the median is a like-for-like comparison.</p>
+<p><strong>Nothing is discarded, only labelled.</strong> Warm-up and fault-affected rows carry <code>in_steady_state</code> and <code>fault_window</code> flags, so a reader can see exactly what a summary excluded and recompute it differently.</p>
+</section>
+<section id="experimental-design" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="experimental-design"><span class="header-section-number">3.6</span> Experimental design</h2>
+<div class="cell">
+<div id="tbl-design" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 50%">
+<col style="width: 23%">
+<col style="width: 4%">
+<col style="width: 8%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Experiment</th>
+<th style="text-align: left;">Varied</th>
+<th style="text-align: left;">Held constant</th>
+<th style="text-align: right;">Runs</th>
+<th style="text-align: left;">Engine</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Delay sweep</td>
+<td style="text-align: left;">D ∈ {2,3,4,6} × ℓ ∈ {1,5,25,50} ms</td>
+<td style="text-align: left;">W=1, G=1</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: left;">container</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Concurrency sweep</td>
+<td style="text-align: left;">G ∈ {1 … 32}</td>
+<td style="text-align: left;">D=3, W=2, N=6, no faults</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: left;">container</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Failover</td>
+<td style="text-align: left;">W ∈ {1,2,3} × heartbeat ∈ {250,500,1000} ms; then hop timeout</td>
+<td style="text-align: left;">D=3, G=6, one kill at t=20 s</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: left;">container</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Mode check</td>
+<td style="text-align: left;">G ∈ {1,2,4} × {real, synthetic}</td>
+<td style="text-align: left;">D=3, W=1, Qwen2.5-0.5B</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: left;">container</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Report scale</td>
+<td style="text-align: left;">G ∈ {1 … 2000} at N = 1000</td>
+<td style="text-align: left;">D=50, W=20, 1T MoE</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: left;">virtual</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;2: The four experiments. Only the stated axis varies within an experiment.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>The delay sweep uses <span class="math inline">\(W=1\)</span> and <span class="math inline">\(G=1\)</span> deliberately: replicas would let queueing confound the hop term, and any concurrency above one adds queue wait to the very quantity being decomposed. The concurrency sweep uses no churn, because a stalled stream would appear as lost throughput unrelated to <span class="math inline">\(G\)</span>. Where a constant had to be chosen rather than swept, the choice and its reason are recorded in the published dataset, because a defaulted constant that happens to bind a result is the easiest way to misread a sweep.</p>
+</section>
+</section>
+<section id="sec-results" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Results</h1>
+<p>Every point in every figure below is one complete run: a container stack started from a scenario file, loaded for 45–180 seconds, then torn down and collected.</p>
+<section id="sec-delay" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-delay"><span class="header-section-number">4.1</span> Network latency accumulates at exactly the pipeline depth</h2>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-delay" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-delay-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="swarm_poc_paper_files/figure-html/fig-delay-1.png" class="img-fluid figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-delay-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Measured median per-token latency against emulated one-way per-hop delay, for four pipeline depths. Each point is one run at W=1, G=1, so nothing queues and the network term is isolated. Lines are least-squares fits.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The relationship is linear over a fifty-fold range of per-hop delay, and the lines fan out by depth. The measurement is the <em>slope</em> of each line, which <a href="#eq-latency" class="quarto-xref">Equation&nbsp;1</a> predicts to be <span class="math inline">\(D\)</span>.</p>
+<div class="cell">
+<div id="tbl-slopes" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-slopes-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 11%">
+<col style="width: 40%">
+<col style="width: 23%">
+<col style="width: 10%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: right;">Depth D</th>
+<th style="text-align: right;">Measured slope (ms per ms)</th>
+<th style="text-align: right;">Predicted (= D)</th>
+<th style="text-align: right;">Error</th>
+<th style="text-align: right;">R²</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">2.0013</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">+0.07%</td>
+<td style="text-align: right;">1.000000</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">3.0039</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">+0.13%</td>
+<td style="text-align: right;">1.000000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">3.9930</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">-0.18%</td>
+<td style="text-align: right;">0.999991</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">6.0113</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">+0.19%</td>
+<td style="text-align: right;">0.999998</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-slopes-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3: Measured slope of per-token latency against per-hop delay. The predicted slope is the pipeline depth.
+</figcaption>
+</figure>
+</div>
+</div>
+<p><a href="#tbl-slopes" class="quarto-xref">Table&nbsp;3</a> is a direct confirmation of the <span class="math inline">\(D(\ell + a/\beta)\)</span> term of <a href="#eq-latency" class="quarto-xref">Equation&nbsp;1</a>. Errors are below 0.2% at every depth and the fits are essentially perfect.</p>
+<p>The slope is <span class="math inline">\(D\)</span> rather than <span class="math inline">\(D+1\)</span> because only the worker link is swept. The path contains <span class="math inline">\(D+1\)</span> hops — <span class="math inline">\(D\)</span> stage egresses plus the gateway’s entry hop — but the gateway’s link is held fixed, so it contributes to the intercept rather than the slope.</p>
+<p>The practical consequence is a design rule. Moving from <span class="math inline">\(D=2\)</span> to <span class="math inline">\(D=6\)</span> costs 17 ms when <span class="math inline">\(\ell = 1\)</span> ms and 213 ms when <span class="math inline">\(\ell = 50\)</span> ms. Depth is nearly free on a local network and dominant over wide-area or cellular links: <em>deep pipelines over slow links are the combination to avoid.</em></p>
+</section>
+<section id="sec-concurrency" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-concurrency"><span class="header-section-number">4.2</span> The utilisation ramp is an upper bound, not a predictor</h2>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-concurrency" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-concurrency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="swarm_poc_paper_files/figure-html/fig-concurrency-1.png" class="img-fluid figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-concurrency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Measured throughput against concurrency on a fixed six-node pool, with two candidate predictions. Each point is one 60 s run at D=3, W=2, with no injected faults; no request failed at any point in this sweep.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Measured throughput runs at 0.68 of the published ramp throughout the linear region, with a standard deviation of 0.002 across those points. A bias that steady is systematic, not noise.</p>
+<p>The cause is an assumption inside the ramp. <span class="math inline">\(X(G) = X_{max}\min(1, G/N)\)</span> treats <span class="math inline">\(G\)</span> streams as keeping <span class="math inline">\(G\)</span> nodes continuously busy, but a stream is idle while its activation is on the wire. The achievable rate for a closed-loop workload is instead the smaller of two classical bounds:</p>
+<p><span id="eq-closed"><span class="math display">\[X \;=\; \min\!\Big(\underbrace{G / T_{token}}_{\text{delay bound}},\;\; \underbrace{W / \max_k \mathrm{compute}_k}_{\text{capacity bound}}\Big) \tag{4}\]</span></span></p>
+<p>Note that the capacity bound uses compute time only, not the <span class="math inline">\(t_k\)</span> of <a href="#eq-pipe" class="quarto-xref">Equation&nbsp;3</a>, which includes a hop. A node is occupied for its compute; the activation’s transit overlaps with it serving the next token.</p>
+<div class="cell">
+<div id="tbl-bounds" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-bounds-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Prediction</th>
+<th style="text-align: right;">Mean ratio</th>
+<th style="text-align: right;">SD</th>
+<th style="text-align: right;">Worst</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Published ramp X_max · min(1, G/N)</td>
+<td style="text-align: right;">0.789</td>
+<td style="text-align: right;">0.119</td>
+<td style="text-align: right;">0.674</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Closed-loop bound (eq. 4)</td>
+<td style="text-align: right;">0.880</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.855</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-bounds-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4: Agreement of measured throughput with each candidate prediction, across all ten runs of the concurrency sweep.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>Two further predictions hold. The knee is where <a href="#eq-closed" class="quarto-xref">Equation&nbsp;4</a> places it: capacity multiplied by <span class="math inline">\(T_{token}\)</span> gives 7.8, and the transition from the delay-bound to the capacity-bound regime is observed between <span class="math inline">\(G=6\)</span> and <span class="math inline">\(G=8\)</span>. And in the saturated regime latency grows purely because streams queue — measured median latency matches <span class="math inline">\(G/X\)</span> to within 5%, as Little’s law requires — rather than because anything degrades.</p>
+</section>
+<section id="sec-scale" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-scale"><span class="header-section-number">4.3</span> The ramp’s error is the network’s share of per-token time</h2>
+<p>The ramp’s assumption fails in proportion to how much of a token’s life is spent on the wire. Re-running the concurrency sweep at the scale the companion analysis was written for — 1000 Pi-class nodes, a 1T-parameter mixture of experts at INT4, <span class="math inline">\(D=50\)</span> — tests that directly, because there a three-second memory-bound compute dwarfs 50 ms of hops.</p>
+<div class="cell">
+<div id="tbl-scale" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-scale-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 44%">
+<col style="width: 30%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Configuration</th>
+<th style="text-align: right;">Network share of T_token</th>
+<th style="text-align: right;">Mean measured ÷ ramp</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">This host (D=3, ℓ=5 ms, container)</td>
+<td style="text-align: right;">21%</td>
+<td style="text-align: right;">0.789</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Report scale (D=50, ℓ=1 ms, virtual)</td>
+<td style="text-align: right;">1.6%</td>
+<td style="text-align: right;">0.991</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-scale-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;5: The published ramp’s error against the fraction of per-token time spent on the network.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>At the larger scale the ramp is accurate to one or two per cent. It is therefore not wrong; it is a bound whose slack is the network fraction, and it is an excellent predictor in the regime it was written for.</p>
+<p>That run also reproduces three figures derived independently of this code: peak throughput 333.3 against ~333 tokens/s, per-token latency 3.054 s against ~3.05 s, and saturation at <span class="math inline">\(G \approx N = 1000\)</span>. Agreement with an independently derived figure is a genuine check rather than a tautology.</p>
+</section>
+<section id="sec-failover" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-failover"><span class="header-section-number">4.4</span> Failover: three costs, three different parameters</h2>
+<p>A single replica of a middle pipeline stage is killed 20 seconds into each run. A middle stage is chosen because stage 0 is reached directly from the gateway and the last stage reports back to it, so a middle stage is the case in which an upstream worker must discover the failure.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-failover" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-failover-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="swarm_poc_paper_files/figure-html/fig-failover-1.png" class="img-fluid figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-failover-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Mean detection time against heartbeat interval, for three replica counts. The dashed line is the configured death threshold (four heartbeats). Detection tracks the heartbeat and is independent of replica count.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Detection time scales with the heartbeat interval and is independent of replica count, as <a href="#fig-failover" class="quarto-xref">Figure&nbsp;3</a> shows: the three bars at each interval are near-equal. It is bounded below by the death threshold minus one heartbeat, since the last beat may arrive at any point in the interval.</p>
+<p>Detection is not recovery, however, and replicas are not an incremental improvement.</p>
+<div class="cell">
+<div id="tbl-failover" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-failover-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">Replicas W</th>
+<th style="text-align: right;">Detection (s)</th>
+<th style="text-align: right;">Recovery (s)</th>
+<th style="text-align: right;">Requests failed</th>
+<th style="text-align: right;">Requests OK</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1.34</td>
+<td style="text-align: right;">never</td>
+<td style="text-align: right;">1155</td>
+<td style="text-align: right;">108</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1.32</td>
+<td style="text-align: right;">1.40</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">339</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">1.37</td>
+<td style="text-align: right;">1.40</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">425</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-failover-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;6: Cost of a single node loss at a 500 ms heartbeat, by replica count. With no surviving replica, recovery never occurs.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>At <span class="math inline">\(W=1\)</span> the loss is categorical. The stage has no surviving replica, so it is gone for the remainder of the run: over a thousand requests fail and recovery never happens. A faster heartbeat does not help, because it detects the loss sooner and there is still nowhere to route. This is the availability expression <span class="math inline">\(1 - (1-p)^W\)</span> appearing as a cliff rather than a slope, and it is why replication exists for survival before it exists for throughput. At <span class="math inline">\(W=2\)</span> the same fault costs between zero and three requests out of roughly 328.</p>
+<p>Recovery, meanwhile, is governed by the client’s hop timeout rather than by detection. Holding the heartbeat fixed at 500 ms and sweeping the timeout from 250 ms to 5 s moved mean recovery from 1.51 s to 3.93 s while detection stayed flat between 1.43 s and 1.59 s. A stream blocked on a dead node cannot retry until its own timeout expires, however quickly the coordinator noticed.</p>
+<p>The practical consequence: <strong>detection time, recovery time and failed-request count are governed by three different parameters</strong> — the heartbeat, the client timeout, and the replica count respectively. Tuning the wrong one achieves nothing.</p>
+</section>
+<section id="sec-modecheck" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="sec-modecheck"><span class="header-section-number">4.5</span> Mode check: what simulated timings can and cannot support</h2>
+<p>The experiment that licenses every other synthetic result compares real transformer execution against the synthetic model on identical scenarios.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-modecheck" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-modecheck-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="swarm_poc_paper_files/figure-html/fig-modecheck-1.png" class="img-fluid figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-modecheck-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Absolute error in median per-token latency, synthetic against real mode, at three concurrency levels. Each point pairs one real run with one synthetic run at the same configuration.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Using the tier table’s nominal memory bandwidth, synthetic mode is wrong by 77–86%. Fitting the effective bandwidth from the real runs instead gives 6.90 GB/s against a nominal 45 GB/s — a factor of 6.5 — and brings single-stream agreement to 3.9%. The memory-bound model of a decode step is therefore sound; the tier table’s absolute values are not achievable speeds.</p>
+<p>Agreement nonetheless degrades with concurrency, to 31% at <span class="math inline">\(G=4\)</span>, for a specific and instructive reason.</p>
+<div class="cell">
+<div id="tbl-contention" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-contention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 34%">
+<col style="width: 21%">
+<col style="width: 24%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: right;">Concurrency G</th>
+<th style="text-align: right;">Real stage compute (ms)</th>
+<th style="text-align: right;">Synthetic (ms)</th>
+<th style="text-align: right;">Real ÷ synthetic</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">57.7</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">0.82</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">68.8</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">0.98</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">94.7</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">1.35</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-contention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;7: Measured per-stage compute time in real mode against the fixed interval synthetic mode sleeps. Co-located containers contend for the host’s memory bandwidth; a synthetic worker cannot reproduce this.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>Synthetic mode also models every token identically and so has no prefill-versus-decode asymmetry, while in real mode the first token of each request pushes all 32 prompt positions through every layer. The combined effect is that synthetic mode over-predicts <em>throughput</em> by a factor of 1.6 to 2.2 even after bandwidth calibration.</p>
+<p><strong>This bounds the rest of the paper.</strong> Synthetic results are evidence about network and churn effects, which is what they were designed to measure. They are not evidence about a real deployment’s absolute throughput.</p>
+</section>
+<section id="sec-engines" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="sec-engines"><span class="header-section-number">4.6</span> Engine agreement</h2>
+<p>The virtual engine’s results are worth no more than its agreement with real containers at a scale where both can run. Identical scenarios were run on both engines, with the harness’s own measured overhead equalised per configuration so that what remains is attributable to the engines’ models.</p>
+<div class="cell">
+<div id="tbl-engines-agree" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-engines-agree-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell table table-sm table-striped small">
+<colgroup>
+<col style="width: 40%">
+<col style="width: 19%">
+<col style="width: 13%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Axis</th>
+<th style="text-align: right;">Concurrency sweep</th>
+<th style="text-align: right;">Delay sweep</th>
+<th style="text-align: left;">Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Per-token p50 latency</td>
+<td style="text-align: right;">1.6%</td>
+<td style="text-align: right;">1.1%</td>
+<td style="text-align: left;">agrees</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Throughput</td>
+<td style="text-align: right;">7.0%</td>
+<td style="text-align: right;">6.2%</td>
+<td style="text-align: left;">over-predicts, knowably</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Stage compute time</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: left;">agrees</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Stage network time</td>
+<td style="text-align: right;">4.1%</td>
+<td style="text-align: right;">2.9%</td>
+<td style="text-align: left;">agrees</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Aggregate queue wait (at saturation)</td>
+<td style="text-align: right;">5.1%</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">agrees</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-engines-agree-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;8: Median relative error, virtual engine against containers, across the concurrency and delay sweeps.
+</figcaption>
+</figure>
+</div>
+</div>
+<p>The engines agree closely on every quantity that composes into latency, and the virtual engine over-predicts throughput by a consistent 6–8% because it has no scheduling jitter and never loses a slot.</p>
+<p>Queue wait requires reading by regime. Below the saturation knee there is no queueing to compare and the relative error is an artifact of dividing by nearly zero. Above it the means agree to about 5%, but the <em>distributions</em> differ sharply: at <span class="math inline">\(G=16\)</span> the container mean is 29.4 ms and the virtual mean 28.6 ms, yet the medians are 22.3 ms and 0.004 ms. The virtual engine’s service and arrivals are both deterministic, so at saturation exactly a third of hops wait about 86 ms and the rest wait nothing — a D/D/1 pattern — while container jitter smears the same total across every hop. The virtual engine may therefore be trusted for aggregate queueing and not for its distribution.</p>
+</section>
+</section>
+<section id="sec-threats" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Threats to validity</h1>
+<p><strong>Single replication.</strong> Every configuration was run once, on one seed. Nothing reported here carries error bars and run-to-run variance is unquantified. This is the largest outstanding weakness. The tightness of the trends is partial mitigation — the delay sweep’s fits reach <span class="math inline">\(R^2 \approx 1.000000\)</span> across four depths, which is difficult to obtain from noise — but it is not a substitute for replication.</p>
+<p><strong>Single host.</strong> Every container shares one machine’s CPU and memory bandwidth. The cgroup limits reduce but do not eliminate the interference, and runs were therefore executed strictly sequentially.</p>
+<p><strong>Tier emulation preserves ratios, not absolute speeds.</strong> §4.5 measures the gap for tier 2 as a factor of 6.5. Nothing here states what a Raspberry Pi would actually do.</p>
+<p><strong>Traffic control is not a home network.</strong> <code>tc netem</code> models delay and loss well but not the full behaviour of real links. The virtual engine’s loss model is more optimistic still, charging one round trip per lost segment, which is TCP’s fast-retransmit best case; a tail loss costs a retransmission timeout instead. Loss results from that engine are therefore a lower bound on the real penalty.</p>
+<p><strong>No integrity, trust or adversarial modelling.</strong> All containers are trusted. The verification questions raised by running inference across independently owned nodes are explicitly out of scope.</p>
+<p><strong>Instrumentation defects.</strong> Six defects were found and corrected during this work, four of which would have produced plausible but wrong results: a circular calibration; a transport implementation that charged <span class="math inline">\(2D\)</span> one-way link delays instead of <span class="math inline">\(D\)</span>, which would have doubled the delay sweep’s slope; an unlogged hop that hid in the latency residual; and a server loop that awaited a downstream acknowledgement inside its service time, capping a stage at <span class="math inline">\(1/(\text{compute} + 2\,\text{hop})\)</span> and producing a convincing but spurious throughput plateau. Each was found by an invariant failing rather than by inspection, which is an argument for instrumenting invariants and not only outcomes.</p>
+</section>
+<section id="sec-supports" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> What the data supports</h1>
+<p><strong>Supported.</strong> Network latency accumulates at exactly <span class="math inline">\(D\)</span>, to within 0.2%. The published utilisation ramp is an upper bound whose slack is the network’s share of per-token time; a closed-loop bound predicts throughput to <span class="math inline">\(0.88 \pm 0.03\)</span> across a 32-fold range of concurrency. The peak-throughput expression reproduces an independently derived figure at <span class="math inline">\(N = 1000\)</span>. Detection, recovery and failed-request count are governed by three distinct parameters. Replication is categorical: <span class="math inline">\(W=1\)</span> is a cliff.</p>
+<p><strong>Not supported.</strong> Any claim about a real deployment’s absolute throughput; any claim about tail latency at scale; any claim about specific hardware; any claim about behaviour under adversarial or untrusted participation.</p>
+</section>
+<section id="sec-future" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Future work</h1>
+<div id="tbl-future" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<div aria-describedby="tbl-future-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>To establish</th>
+<th>What is required</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>That these effects are not noise</td>
+<td>The sweeps re-run across several seeds, with confidence intervals</td>
+</tr>
+<tr class="even">
+<td>Absolute throughput for a real deployment</td>
+<td>Real mode at scale, or a prefill-aware synthetic model</td>
+</tr>
+<tr class="odd">
+<td>Behaviour under sustained churn</td>
+<td>The random churn model run for hours rather than one scripted kill</td>
+</tr>
+<tr class="even">
+<td>Tail latency at scale</td>
+<td>Containers at scale, or a jitter model in the virtual engine</td>
+</tr>
+<tr class="odd">
+<td>That results survive real networks</td>
+<td>Multi-host deployment; traffic control cannot answer this</td>
+</tr>
+</tbody>
+</table>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-tbl" id="tbl-future-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;9: Open questions and what would close them.
+</figcaption>
+</figure>
+</div>
+<p>The harness is built for these: scenarios are data, runs are repeatable from a seed, and the analysis re-derives from raw event logs in seconds, so adding replications is a matter of machine time rather than of new code.</p>
+</section>
+<section id="sec-availability" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Data and code availability</h1>
+<p>Harness, scenarios, raw event logs and analysis: <code>github.com/JohnBullDog/swarm-poc-network-fault-harness</code>.</p>
+<p>The published dataset contains one row per run with every parameter, prediction and measurement (48 runs), the per-observation tables behind them so any summary can be recomputed rather than taken on trust, and a data dictionary covering all 99 columns with units. Output structure is verified by 12,479 automated assertions covering schema stability, column types, join integrity and completeness.</p>
+<p>Every figure and every statistic in this paper is computed from those published files at render time; none is transcribed.</p>
+</section>
+<section id="references" class="level1 unnumbered">
+<h1 class="unnumbered">References</h1>
+<p>The cost model tested here is developed in a companion analysis, which builds on the following.</p>
+<ul>
+<li>Borzunov et al.&nbsp;<em>Petals: Collaborative Inference and Fine-tuning of Large Models.</em> The closest system: transformer blocks distributed BitTorrent-style across volunteer machines.</li>
+<li>Shoeybi et al.&nbsp;<em>Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism.</em> Tensor parallelism, excluded by design here: its per-layer all-reduce dominates over commodity links.</li>
+<li>Huang et al.&nbsp;<em>GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism.</em></li>
+<li>Narayanan et al.&nbsp;<em>PipeDream: Generalized Pipeline Parallelism for DNN Training.</em></li>
+<li>Rajbhandari et al.&nbsp;<em>ZeRO-Infinity</em>; Sheng et al.&nbsp;<em>FlexGen.</em> The single-node end of the same bandwidth-bound trade-off.</li>
+<li>Cihangiroglu and Nocera. Activation-drift detection using secret canary inputs.</li>
+<li><em>VeriLLM.</em> Merkle commitments on intermediate states with sampled rerun verification.</li>
+<li>Wan et al.&nbsp;<em>DAWN</em> (AAAI 2026). Communication-graph synthesis among LLM agents.</li>
+</ul>
+<p>Model used in real mode: Qwen2.5-0.5B-Instruct (Qwen team, Alibaba Cloud).</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

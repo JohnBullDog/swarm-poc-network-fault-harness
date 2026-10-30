@@ -1,0 +1,62 @@
+/*-- scss:defaults --*/
+// A reading document, not a dashboard: a measured column width, generous
+// leading, and the same palette as the figures so text and charts cohere.
+$body-color:     #1a1a18;
+$body-bg:        #ffffff;
+$link-color:     #2a78d6;
+$font-size-root: 17px;
+$toc-color:      #52514e;
+
+/*-- scss:rules --*/
+body { line-height: 1.62; }
+
+main {
+  max-width: 48rem;
+  font-family: "Charter", "Georgia", "Iowan Old Style", serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1f3864;
+  letter-spacing: -0.01em;
+}
+h1 { font-weight: 650; }
+h2 { border-bottom: 1px solid #dedddA; padding-bottom: 0.2em; margin-top: 2em; }
+
+#title-block-header .quarto-title .title { line-height: 1.25; }
+
+// Abstract: set apart, since it carries the whole argument in one paragraph.
+div.abstract {
+  background: #f6f8fb;
+  border-left: 4px solid #2a78d6;
+  padding: 1em 1.3em;
+  margin: 1.5em 0;
+  font-size: 0.94em;
+}
+div.abstract > .abstract-title {
+  font-family: system-ui, sans-serif;
+  font-weight: 650;
+  color: #1f3864;
+}
+
+table {
+  font-size: 0.88em;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+thead th {
+  background: #1f3864;
+  color: #ffffff;
+  font-weight: 600;
+}
+tbody td, tbody th { border-bottom: 1px solid #ececea; }
+
+figcaption, caption, .figure-caption, .table-caption {
+  font-family: system-ui, sans-serif;
+  font-size: 0.82em;
+  color: #52514e;
+  line-height: 1.45;
+}
+
+code { color: #1f3864; font-size: 0.88em; }
+
+blockquote { border-left: 3px solid #dedddA; color: #52514e; }
