@@ -186,8 +186,17 @@ concurrent runs would each measure the other's interference.
 timings do not track real ones there, nothing measured in synthetic mode at
 larger scale can be trusted.
 
-See [`docs/findings.md`](docs/findings.md) for results and
-[`docs/data-dictionary.md`](docs/data-dictionary.md) for the output schema.
+### Results
+
+- **[`datasets/swarm_poc_results.xlsx`](datasets/swarm_poc_results.xlsx)** —
+  master workbook: a Summary sheet whose figures are live formulas over the
+  data, one sheet per experiment, every run combined on one sheet for
+  pivoting, and a data dictionary. Rebuild with `python -m tools.build_workbook`.
+- **[`docs/findings.md`](docs/findings.md)** — the write-up, every number
+  sourced to a table.
+- **[`docs/data-dictionary.md`](docs/data-dictionary.md)** — full output schema.
+- `datasets/*_runs.csv` — one row per run; `datasets/*_{hop,token_done}.csv.gz`
+  — per-observation detail. Join everything on `run_id`.
 
 ## Interpreting the results
 
